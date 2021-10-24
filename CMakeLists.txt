@@ -1,0 +1,65 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.19 FATAL_ERROR)
+
+# Allow for custom CMake modules
+LIST(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake)
+
+# Allow PROJECT() to manage versions
+IF(POLICY CMP0048)
+    CMAKE_POLICY(SET CMP0048 NEW)
+ENDIF()
+
+PROJECT(Ryme)
+
+INCLUDE(ProjectVersion)
+
+ENABLE_TESTING()
+
+###
+### Third Party Dependencies
+###
+
+ADD_SUBDIRECTORY(ThirdParty)
+
+FIND_PACKAGE(glm CONFIG REQUIRED)
+
+FIND_PACKAGE(fmt CONFIG REQUIRED)
+
+FIND_PACKAGE(SDL2 2.0.6 CONFIG REQUIRED)
+
+FIND_PACKAGE(Python3 COMPONENTS Interpreter Development.Embed REQUIRED)
+
+FIND_PACKAGE(pybind11 CONFIG REQUIRED)
+
+FIND_PACKAGE(Vulkan COMPONENTS Vulkan glslc REQUIRED)
+
+SET(GTEST_MSVC_SEARCH "MD")
+FIND_PACKAGE(GTest REQUIRED)
+
+###
+### Globals
+###
+
+INCLUDE(GetRuntimeDir)
+
+# Find the location of SDL2.dll
+GET_RUNTIME_DIR(SDL2::SDL2 _SDL2_runtime_dir)
+
+SET(RUNTIME_PATH
+    ${Python3_RUNTIME_LIBRARY_DIRS}
+    ${_SDL2_runtime_dir}
+)
+
+SET(ASSET_PATH
+)
+
+###
+### Engine Library
+###
+
+ADD_SUBDIRECTORY(Engine)
+
+###
+### Demo Executables
+###
+
+ADD_SUBDIRECTORY(Demos)
