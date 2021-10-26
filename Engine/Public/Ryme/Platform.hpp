@@ -53,6 +53,20 @@
 
 #endif
 
+#if defined(RYME_COMPILER_MSVC)
+
+    #define RYME_FUNCTION_NAME __FUNCSIG__
+
+#elif defined(RYME_COMPILER_GCC) || defined(RYME_COMPILER_CLANG)
+
+    #define RYME_FUNCTION_NAME __PRETTY_FUNCTION__
+
+#else
+
+    #define RYME_FUNCTION_NAME __func__
+
+#endif
+
 #if defined(NDEBUG)
 
     #define RYME_BUILD_RELEASE

@@ -123,6 +123,12 @@ struct RYME_API Version
 
 }; // struct Version
 
+RYME_API
+inline Version GetVersion()
+{
+    return Version(RYME_VERSION_MAJOR, RYME_VERSION_MINOR, RYME_VERSION_PATCH);
+}
+
 } // namespace ryme
 
 template<>

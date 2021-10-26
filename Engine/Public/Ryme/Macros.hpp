@@ -10,29 +10,6 @@
 #define _RYME_STRINGIFY(x) #x
 #define RYME_STRINGIFY(x) _RYME_STRINGIFY(x)
 
-///
-/// RYME_FUNCTION_NAME()
-///
-
-#if defined(RYME_COMPILER_MSVC)
-
-    #define RYME_FUNCTION_NAME() __FUNCSIG__
-
-#elif defined(RYME_COMPILER_GCC) || defined(RYME_COMPILER_CLANG)
-
-    #define RYME_FUNCTION_NAME() __PRETTY_FUNCTION__
-
-#else
-
-    #define RYME_FUNCTION_NAME() __func__
-
-#endif
-
-///
-/// RYME_DISABLE_WARNINGS()
-/// RYME_ENABLE_WARNINGS()
-///
-
 #if defined(RYME_COMPILER_MSVC)
 
     #define RYME_DISABLE_WARNINGS() \

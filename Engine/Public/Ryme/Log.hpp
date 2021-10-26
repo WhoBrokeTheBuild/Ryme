@@ -5,6 +5,9 @@
 #include <Ryme/Path.hpp>
 #include <Ryme/Version.hpp>
 
+#include <chrono>
+#include <utility>
+
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <fmt/chrono.h>
@@ -15,12 +18,21 @@ namespace ryme {
 
 #define RYME_ANCHOR (fmt::format("{}:{}", ryme::Path(__FILE__).GetFilename().ToCString(), __LINE__))
 
+#define RYME_BENCHMARK_START() \
+    auto rymeBenchmarkStart = std::chrono::high_resolution_clock::now()
+
+#define RYME_BENCHMARK_END()                                                    \
+    ryme::Log(RYME_ANCHOR, "Function '{}' took {:.3} ms", RYME_FUNCTION_NAME,   \
+        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(  \
+            std::chrono::high_resolution_clock::now() - rymeBenchmarkStart      \
+        ).count())
+
 RYME_API
 void LogMessage(StringView tag, StringView message);
 
-template <class... Args>
-inline void Log(StringView tag, StringView format, const Args&... args) {
-    LogMessage(tag, fmt::format(format, args...));
+template <typename... Args>
+inline void Log(StringView tag, StringView format, Args&&... args) {
+    LogMessage(tag, fmt::vformat(format, fmt::make_format_args(std::forward<Args>(args)...)));
 }
 
 } // namespace ryme
