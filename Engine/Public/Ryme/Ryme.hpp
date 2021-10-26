@@ -28,6 +28,9 @@ void Init(InitInfo initInfo = {});
 RYME_API
 void Term();
 
+RYME_API
+void Run();
+
 } // namespace ryme
 
 #endif // RYME_HPP

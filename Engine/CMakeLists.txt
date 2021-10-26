@@ -77,8 +77,8 @@ SET_TARGET_PROPERTIES(
 TARGET_COMPILE_OPTIONS(
     ${_target}
     PUBLIC
-        # Configure VS to use C++20, since it ignores CXX_STANDARD
-        $<$<CXX_COMPILER_ID:MSVC>: /std:c++latest>
+        # Recommended by pybind11
+        $<$<CXX_COMPILER_ID:MSVC>: /permissive->
 		
         # Configure exception handling model
         $<$<CXX_COMPILER_ID:MSVC>: /EHs>

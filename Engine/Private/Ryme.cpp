@@ -29,9 +29,24 @@ void Init(InitInfo initInfo)
 RYME_API
 void Term()
 {
-
     Graphics::Term();
     Script::Term();
+}
+
+RYME_API
+void Run()
+{
+    SDL_Event e;
+    bool running = true;
+    while (running) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                running = false;
+            }
+        }
+
+        
+    }
 }
 
 } // namespace ryme

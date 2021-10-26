@@ -12,6 +12,10 @@ int main(int argc, char ** argv)
                 .WindowSize = { 1024, 768 },
             },
         });
+
+        ryme::Run();
+
+        ryme::Term();
     }
     catch (const std::exception& e) {
         ryme::Log(RYME_ANCHOR, "Exception {}", e.what());
