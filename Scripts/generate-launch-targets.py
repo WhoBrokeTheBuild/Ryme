@@ -95,11 +95,7 @@ if os.path.isdir('.vscode'):
                 'name': 'RYME_ASSET_PATH',
                 'value': assetPath
             }
-        ],
-        'console': 'internalConsole',
-        'logging': {
-            'moduleLoad': False
-        }
+        ]
     }
     
     if isWindows:
@@ -108,11 +104,16 @@ if os.path.isdir('.vscode'):
             'name': 'PATH',
             'value': '${env:PATH};' + runtimePath
         })
+        data['console'] = 'internalConsole'
+        data['logging']= {
+            'moduleLoad': False
+        }
     else:
         data['environment'].append({
             'name': 'LD_LIBRARY_PATH',
             'value': runtimePath
         })
+        data['externalConsole'] = False
 
     add_or_update_config(data, launch['configurations'])
 

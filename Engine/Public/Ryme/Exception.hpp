@@ -7,6 +7,7 @@
 #include <fmt/core.h>
 
 #include <stdexcept>
+#include <utility>
 
 namespace ryme {
 
@@ -19,8 +20,8 @@ public:
     { }
 
     template <class... Args>
-    Exception(StringView format, const Args&... args) noexcept
-        : _message(fmt::format(format, args...))
+    Exception(StringView format, Args&&... args) noexcept
+        : _message(fmt::vformat(format, fmt::make_format_args(std::forward<Args>(args)...)))
     { }
 
     const char * what() const noexcept override {
