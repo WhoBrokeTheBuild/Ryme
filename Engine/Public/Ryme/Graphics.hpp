@@ -22,7 +22,7 @@ namespace Graphics {
 
 struct RYME_API InitInfo
 {
-    String WindowTitle = "Ryme";
+    String WindowTitle = RYME_PROJECT_NAME " (" RYME_VERSION_STRING ")";
 
     Vec2i WindowSize = { 640, 480 };
 
