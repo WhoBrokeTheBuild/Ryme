@@ -21,5 +21,7 @@ int main(int argc, char ** argv)
         ryme::Log(RYME_ANCHOR, "Exception {}", e.what());
     }
 
+    fflush(stdout);
+
     return 0;
 }
