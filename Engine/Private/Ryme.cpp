@@ -33,6 +33,8 @@ void Init(InitInfo initInfo /*= {}*/)
 
     Graphics::Init(initInfo.WindowTitle, initInfo.WindowSize);
 
+    World::Init();
+
     RYME_BENCHMARK_END();
 }
 
@@ -40,6 +42,8 @@ RYME_API
 void Term()
 {
     RYME_BENCHMARK_START();
+
+    World::Term();
 
     Graphics::Term();
 
