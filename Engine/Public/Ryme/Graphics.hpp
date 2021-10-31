@@ -20,20 +20,8 @@ namespace ryme {
 
 namespace Graphics {
 
-struct RYME_API InitInfo
-{
-    String WindowTitle = RYME_PROJECT_NAME " (" RYME_VERSION_STRING ")";
-
-    Vec2i WindowSize = { 640, 480 };
-
-    String AppName;
-
-    Version AppVersion;
-
-}; // struct InitInfo
-
 RYME_API
-void Init(InitInfo initInfo = {});
+void Init(String windowTitle, Vec2i windowSize);
 
 RYME_API
 void Term();

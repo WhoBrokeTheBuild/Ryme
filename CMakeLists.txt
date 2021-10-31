@@ -12,7 +12,33 @@ PROJECT(Ryme)
 
 INCLUDE(ProjectVersion)
 
-ENABLE_TESTING()
+###
+### Options
+###
+
+IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET(RYME_IS_DEBUG ON)
+    SET(RYME_IS_RELEASE OFF)
+ELSE()
+    SET(RYME_IS_DEBUG OFF)
+    SET(RYME_IS_RELEASE ON)
+ENDIF()
+
+OPTION(
+    RYME_TEST
+    "Build Ryme test suite"
+    OFF
+)
+
+OPTION(
+    RYME_BENCHMARK
+    "Build Ryme with benchmarking"
+    ${RYME_IS_DEBUG}
+)
+
+IF(RYME_TEST)
+    ENABLE_TESTING()
+ENDIF()
 
 ###
 ### Third Party Dependencies
@@ -44,12 +70,12 @@ INCLUDE(GetRuntimeDir)
 # Find the location of SDL2.dll
 GET_RUNTIME_DIR(SDL2::SDL2 _SDL2_runtime_dir)
 
-SET(RUNTIME_PATH
+LIST(APPEND RYME_RUNTIME_PATH
     ${Python3_RUNTIME_LIBRARY_DIRS}
     ${_SDL2_runtime_dir}
 )
 
-SET(ASSET_PATH
+LIST(APPEND RYME_ASSET_PATH
 )
 
 ###

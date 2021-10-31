@@ -18,14 +18,24 @@ namespace ryme {
 
 #define RYME_ANCHOR (fmt::format("{}:{}", ryme::Path(__FILE__).GetFilename().ToCString(), __LINE__))
 
-#define RYME_BENCHMARK_START() \
-    auto rymeBenchmarkStart = std::chrono::high_resolution_clock::now()
+#if defined(RYME_ENABLE_BENCHMARK)
 
-#define RYME_BENCHMARK_END()                                                    \
-    ryme::Log(RYME_ANCHOR, "Function '{}' took {:.3} ms", RYME_FUNCTION_NAME,   \
-        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(  \
-            std::chrono::high_resolution_clock::now() - rymeBenchmarkStart      \
-        ).count())
+    #define RYME_BENCHMARK_START() \
+        auto rymeBenchmarkStart = std::chrono::high_resolution_clock::now()
+
+    #define RYME_BENCHMARK_END()                                                    \
+        ryme::Log(RYME_ANCHOR, "Function '{}' took {:.3} ms", RYME_FUNCTION_NAME,   \
+            std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(  \
+                std::chrono::high_resolution_clock::now() - rymeBenchmarkStart      \
+            ).count())
+
+#else
+
+    #define RYME_BENCHMARK_START()
+
+    #define RYME_BENCHMARK_END()
+
+#endif
 
 RYME_API
 void LogMessage(StringView tag, StringView message);

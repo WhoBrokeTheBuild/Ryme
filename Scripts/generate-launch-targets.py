@@ -87,7 +87,7 @@ if os.path.isdir('.vscode'):
         'name': name,
         'type': 'cppdbg',
         'request': 'launch',
-        'program': os.path.join(binaryDir, executable),
+        'program': binaryDir + '/' + executable,
         'args': [],
         'cwd': workingDir,
         'environment': [
@@ -141,7 +141,7 @@ if isWindows and os.path.isdir('.vs'):
         'type': 'default',
         'project': 'CMakeLists.txt',
         'args': [],
-        'projectTarget': '{} ({})'.format(os.path.basename(executable), executable),
+        'projectTarget': '{} ({})'.format(os.path.basename(executable), executable.replace('/', '\\')),
         'cwd': workingDir,
         'env': {
             'PATH': '${env.PATH};' + runtimePath,

@@ -3,6 +3,7 @@
 
 #include <Ryme/Config.hpp>
 #include <Ryme/Containers.hpp>
+#include <Ryme/Entity.hpp>
 #include <Ryme/Exception.hpp>
 #include <Ryme/Graphics.hpp>
 #include <Ryme/Log.hpp>
@@ -10,15 +11,21 @@
 #include <Ryme/Path.hpp>
 #include <Ryme/Script.hpp>
 #include <Ryme/String.hpp>
+#include <Ryme/Transform.hpp>
 #include <Ryme/Version.hpp>
+#include <Ryme/World.hpp>
 
 namespace ryme {
 
 struct RYME_API InitInfo
 {
-    Script::InitInfo Script;
+    String ApplicationName;
 
-    Graphics::InitInfo Graphics;
+    Version ApplicationVersion;
+
+    String WindowTitle = RYME_PROJECT_NAME " (" RYME_VERSION_STRING ")";
+
+    Vec2i WindowSize = { 640, 480 };
 
 }; // struct InitInfo
 
@@ -30,6 +37,21 @@ void Term();
 
 RYME_API
 void Run();
+
+RYME_API
+bool IsRunning();
+
+RYME_API
+void SetRunning(bool isRunning);
+
+RYME_API
+inline Version GetVersion();
+
+RYME_API
+inline String GetApplicationName();
+
+RYME_API
+inline Version GetApplicationVersion();
 
 } // namespace ryme
 

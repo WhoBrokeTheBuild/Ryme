@@ -36,6 +36,12 @@ MACRO(DEFINE_DEMO _target)
             ${CMAKE_CURRENT_SOURCE_DIR}/Private
     )
 
+    TARGET_COMPILE_DEFINITIONS(
+        ${_target}
+        PRIVATE
+            DEMO_NAME="${_target}"
+    )
+
     SET_TARGET_PROPERTIES(
         ${_target}
         PROPERTIES
@@ -49,7 +55,6 @@ MACRO(DEFINE_DEMO _target)
     ENDIF()
 
     FILE(RELATIVE_PATH _executable ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${_target}${_ext})
-    FILE(TO_NATIVE_PATH ${_executable} _executable)
 
     EXECUTE_PROCESS(
         COMMAND ${Python3_EXECUTABLE}
@@ -58,8 +63,8 @@ MACRO(DEFINE_DEMO _target)
             --executable "${_executable}"
             --binary-dir "${CMAKE_BINARY_DIR}"
             --working-dir "${CMAKE_CURRENT_SOURCE_DIR}"
-            --asset-path "${ASSET_PATH}"
-            --runtime-path "${RUNTIME_PATH}"
+            --asset-path "${RYME_ASSET_PATH}"
+            --runtime-path "${RYME_RUNTIME_PATH}"
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 

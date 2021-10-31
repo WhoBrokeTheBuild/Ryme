@@ -5,7 +5,7 @@ namespace ryme {
 namespace Script {
 
 RYME_API
-void Init(InitInfo initInfo)
+void Init()
 {
     py::initialize_interpreter();
     

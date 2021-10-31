@@ -11,13 +11,8 @@ namespace ryme {
 
 namespace Script {
 
-struct RYME_API InitInfo
-{
-
-}; // struct InitInfo
-
 RYME_API
-void Init(InitInfo initInfo);
+void Init();
 
 RYME_API
 void Term();

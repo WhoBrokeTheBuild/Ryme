@@ -1,24 +1,23 @@
 #include <Ryme/Ryme.hpp>
 
+
+using namespace ryme;
 int main(int argc, char ** argv)
 {
     try {
-        ryme::Init({
-            .Script = {
-
-            },
-            .Graphics = {
-                .WindowTitle = "HelloWorld",
-                .WindowSize = { 1024, 768 },
-            },
+        Init({
+            .ApplicationName = DEMO_NAME,
+            .ApplicationVersion = GetVersion(),
+            .WindowTitle = DEMO_NAME " (" RYME_VERSION_STRING ")",
+            .WindowSize = { 1024, 768 },
         });
 
-        ryme::Run();
+        Run();
 
-        ryme::Term();
+        Term();
     }
     catch (const std::exception& e) {
-        ryme::Log(RYME_ANCHOR, "Exception {}", e.what());
+        Log(RYME_ANCHOR, "Exception {}", e.what());
     }
 
     fflush(stdout);

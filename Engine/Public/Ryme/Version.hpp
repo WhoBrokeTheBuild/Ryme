@@ -88,13 +88,13 @@ struct RYME_API Version
     inline void FromString(const String& string)
     {
         std::smatch match;
-        std::regex regex("^.*?([0-9])+\\.([0-9]+)\\.([0-9]+).*");
-        std::regex_match(string, match, regex);
+        std::regex regex("([0-9])+\\.([0-9]+)\\.([0-9]+)");
+        std::regex_search(string, match, regex);
 
         if (match.size() == 4) {
-            Major = std::strtol(match[1].str().c_str(), nullptr, 10);
-            Minor = std::strtol(match[2].str().c_str(), nullptr, 10);
             Patch = std::strtol(match[3].str().c_str(), nullptr, 10);
+            Minor = std::strtol(match[2].str().c_str(), nullptr, 10);
+            Major = std::strtol(match[1].str().c_str(), nullptr, 10);
         }
     }
 
@@ -122,12 +122,6 @@ struct RYME_API Version
     }
 
 }; // struct Version
-
-RYME_API
-inline Version GetVersion()
-{
-    return Version(RYME_VERSION_MAJOR, RYME_VERSION_MINOR, RYME_VERSION_PATCH);
-}
 
 } // namespace ryme
 

@@ -1,6 +1,4 @@
 #include <Ryme/Graphics.hpp>
-#include <Ryme/Exception.hpp>
-#include <Ryme/Log.hpp>
 #include <Ryme/Ryme.hpp>
 
 #include <SDL_vulkan.h>
@@ -48,9 +46,9 @@ VkQueue _vkPresentQueue = VK_NULL_HANDLE;
 
 VmaAllocator _vmaAllocator = VK_NULL_HANDLE;
 
-void initWindow(const InitInfo& initInfo);
+void initWindow(String windowTitle, Vec2i windowSize);
 void termWindow();
-void initInstance(const InitInfo& initInfo);
+void initInstance();
 void termInstance();
 void initSurface();
 void termSurface();
@@ -100,10 +98,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
 }
 
 RYME_API
-void Init(InitInfo initInfo)
+void Init(String windowTitle, Vec2i windowSize)
 {
-    initWindow(initInfo);
-    initInstance(initInfo);
+    initWindow(windowTitle, windowSize);
+    initInstance();
     initSurface();
     initDevice();
     initAllocator();
@@ -119,7 +117,7 @@ void Term()
     termWindow();
 }
 
-void initWindow(const InitInfo& initInfo)
+void initWindow(String windowTitle, Vec2i windowSize)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
         throw Exception("SDL_Init failed, {}", SDL_GetError());
@@ -133,11 +131,11 @@ void initWindow(const InitInfo& initInfo)
         sdlVersion.patch);
     
     _sdlWindow = SDL_CreateWindow(
-        initInfo.WindowTitle.c_str(),
+        windowTitle.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        initInfo.WindowSize.x,
-        initInfo.WindowSize.y,
+        windowSize.x,
+        windowSize.y,
         SDL_WINDOW_VULKAN
     );
 
@@ -156,7 +154,7 @@ void termWindow()
     SDL_Quit();
 }
 
-void initInstance(const InitInfo& initInfo)
+void initInstance()
 {
     VkResult vkResult;
     SDL_bool sdlResult;
@@ -242,15 +240,16 @@ void initInstance(const InitInfo& initInfo)
 
     // Instance
     const auto& engineVersion = GetVersion();
+    const auto& applicationVersion = GetApplicationVersion();
 
     VkApplicationInfo applicationInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = nullptr,
-        .pApplicationName = initInfo.AppName.c_str(),
+        .pApplicationName = GetApplicationName().c_str(),
         .applicationVersion = VK_MAKE_VERSION(
-            initInfo.AppVersion.Major,
-            initInfo.AppVersion.Minor,
-            initInfo.AppVersion.Patch
+            applicationVersion.Major,
+            applicationVersion.Minor,
+            applicationVersion.Patch
         ),
         .pEngineName = RYME_PROJECT_NAME,
         .engineVersion = VK_MAKE_VERSION(

@@ -2,15 +2,21 @@
 
 namespace ryme {
 
+bool _isRunning = false;
+
+String _applicationName;
+
+Version _applicationVersion;
+
 RYME_API
-void Init(InitInfo initInfo)
+void Init(InitInfo initInfo /*= {}*/)
 {
     RYME_BENCHMARK_START();
 
-    Log(RYME_ANCHOR, "Ryme Version: {}", ryme::GetVersion());
+    _applicationName = initInfo.ApplicationName;
+    _applicationVersion = initInfo.ApplicationVersion;
 
-    Script::Init(initInfo.Script);
-    Graphics::Init(initInfo.Graphics);
+    Log(RYME_ANCHOR, "Ryme Version: {}", ryme::GetVersion());
     
     Log(RYME_ANCHOR, "{{fmt}} Version: {}.{}.{}",
         FMT_VERSION / 10000,
@@ -23,30 +29,78 @@ void Init(InitInfo initInfo)
         GLM_VERSION_PATCH,
         GLM_VERSION_REVISION);
 
+    Script::Init();
+
+    Graphics::Init(initInfo.WindowTitle, initInfo.WindowSize);
+
     RYME_BENCHMARK_END();
 }
 
 RYME_API
 void Term()
 {
+    RYME_BENCHMARK_START();
+
     Graphics::Term();
+
     Script::Term();
+    
+    RYME_BENCHMARK_END();
 }
 
 RYME_API
 void Run()
 {
+    _isRunning = true;
+
     SDL_Event e;
-    bool running = true;
-    while (running) {
+    while (_isRunning) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
-                running = false;
+                _isRunning = false;
             }
         }
 
-        
+        World::Update();
+
+        World::Render();
     }
+
+    _isRunning = false;
+}
+
+RYME_API
+bool IsRunning()
+{
+    return _isRunning;
+}
+
+RYME_API
+void SetRunning(bool isRunning)
+{
+    _isRunning = isRunning;
+}
+
+RYME_API
+inline Version GetVersion()
+{
+    return Version(
+        RYME_VERSION_MAJOR,
+        RYME_VERSION_MINOR,
+        RYME_VERSION_PATCH
+    );
+}
+
+RYME_API
+inline String GetApplicationName()
+{
+    return _applicationName;
+}
+
+RYME_API
+inline Version GetApplicationVersion()
+{
+    return _applicationVersion;
 }
 
 } // namespace ryme
