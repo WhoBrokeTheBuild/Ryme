@@ -1,11 +1,12 @@
 #include <Ryme/Entity.hpp>
+#include <Ryme/World.hpp>
 
 namespace ryme {
 
 Entity::~Entity()
 {
     if (_parent) {
-        _parent->RemoveChild(this);
+        _parent->RemoveEntity(this);
     }
 
     for (auto component : _componentList) {
@@ -13,10 +14,12 @@ Entity::~Entity()
         delete component;
     }
 
-    for (auto child : _childList) {
-        child->_parent = nullptr;
-        delete child;
+    for (auto entity : _entityList) {
+        entity->_parent = nullptr;
+        delete entity;
     }
+
+    World::UnregisterEntity(this);
 }
 
 void Entity::SetName(String name)
@@ -24,48 +27,108 @@ void Entity::SetName(String name)
     _name = name;
 }
 
-void Entity::AddComponent(Component * component)
+Component * Entity::AddComponent(Component * component, TypeIndex typeIndex)
 {
+    World::RegisterComponent(component, typeIndex);
+
     auto it = std::find(_componentList.begin(), _componentList.end(), component);
     if (it == _componentList.end()) {
         _componentList.push_back(component);
+
+        if (!_componentListTypeMap.contains(typeIndex)) {
+            _componentListTypeMap.emplace(typeIndex, List<Component *>());
+        }
+
+        _componentListTypeMap[typeIndex].push_back(component);
     }
     
     component->Attach(this);
+
+    return component;
 }
 
 void Entity::RemoveComponent(Component * component)
 {
+    World::UnregisterComponent(component);
+
     auto it = std::find(_componentList.begin(), _componentList.end(), component);
     if (it != _componentList.end()) {
         _componentList.erase(it);
     }
 
+    for (auto& [key, list] : _componentListTypeMap) {
+        it = std::find(list.begin(), list.end(), component);
+        if (it != list.end()) {
+            list.erase(it);
+            break;
+        }
+    }
+
     component->Detach();
 }
 
-void Entity::AddChild(Entity * child)
+Span<Component *> Entity::GetComponentList(TypeIndex typeIndex)
 {
-    auto it = std::find(_childList.begin(), _childList.end(), child);
-    if (it == _childList.end()) {
-        _childList.push_back(child);
+    auto it = _componentListTypeMap.find(typeIndex);
+    if (it != _componentListTypeMap.end()) {
+        return it->second;
     }
 
-    if (child->_parent) {
-        child->_parent->RemoveChild(child);
-    }
-    
-    child->_parent = this;
+    return Span<Component *>();
 }
 
-void Entity::RemoveChild(Entity * child)
+Entity * Entity::AddEntity(Entity * entity, TypeIndex typeIndex)
 {
-    auto it = std::find(_childList.begin(), _childList.end(), child);
-    if (it != _childList.end()) {
-        _childList.erase(it);
+    World::RegisterEntity(entity, typeIndex);
+
+    auto it = std::find(_entityList.begin(), _entityList.end(), entity);
+    if (it == _entityList.end()) {
+        _entityList.push_back(entity);
+        
+        if (!_entityListTypeMap.contains(typeIndex)) {
+            _entityListTypeMap.emplace(typeIndex, List<Entity *>());
+        }
+
+        _entityListTypeMap[typeIndex].push_back(entity);
+    }
+
+    if (entity->_parent) {
+        entity->_parent->RemoveEntity(entity);
     }
     
-    child->_parent = nullptr;
+    entity->_parent = this;
+
+    return entity;
+}
+
+void Entity::RemoveEntity(Entity * entity)
+{
+    World::UnregisterEntity(entity);
+
+    auto it = std::find(_entityList.begin(), _entityList.end(), entity);
+    if (it != _entityList.end()) {
+        _entityList.erase(it);
+    }
+
+    for (auto& [key, list] : _entityListTypeMap) {
+        it = std::find(list.begin(), list.end(), entity);
+        if (it != list.end()) {
+            list.erase(it);
+            break;
+        }
+    }
+
+    entity->_parent = nullptr;
+}
+
+Span<Entity *> Entity::GetEntityList(TypeIndex typeIndex)
+{
+    auto it = _entityListTypeMap.find(typeIndex);
+    if (it != _entityListTypeMap.end()) {
+        return it->second;
+    }
+
+    return Span<Entity *>();
 }
 
 void Entity::SetTransform(Transform transform)
@@ -134,8 +197,8 @@ void Entity::Update()
         component->Update();
     }
 
-    for (auto child : _childList) {
-        child->Update();
+    for (auto entity : _entityList) {
+        entity->Update();
     }
 
     AfterUpdate();
@@ -151,8 +214,8 @@ void Entity::Render()
         component->Render();
     }
 
-    for (auto child : _childList) {
-        child->Render();
+    for (auto entity : _entityList) {
+        entity->Render();
     }
 
     AfterRender();

@@ -66,6 +66,68 @@ public:
 
 };
 
+class TestSystem : public System
+{
+public:
+
+    TestSystem() = default;
+
+    virtual ~TestSystem() = default;
+
+    void OnUpdate() override {
+        Log(RYME_ANCHOR, "TestSystem::OnUpdate");
+
+        Log(RYME_ANCHOR, "TestSystem Collected {} TestEntity", _testEntityList.size());
+        Log(RYME_ANCHOR, "TestSystem Collected {} TestComponent", _testComponentList.size());
+    }
+
+    void OnRender() override {
+        Log(RYME_ANCHOR, "TestSystem::OnRender");
+    }
+
+    void OnEntityRegistered(Entity * entity, TypeIndex typeIndex) override {
+        Log(RYME_ANCHOR, "TestSystem::OnEntityRegistered ({})", typeIndex.name());
+
+        if (typeIndex.hash_code() == typeid(TestEntity).hash_code()) {
+            _testEntityList.push_back(static_cast<TestEntity *>(entity));
+        }
+    }
+
+    void OnEntityUnregistered(Entity * entity) override {
+        Log(RYME_ANCHOR, "TestSystem::OnEntityUnregistered");
+
+        auto it = std::find(_testEntityList.begin(), _testEntityList.end(), entity);
+        if (it != _testEntityList.end()) {
+            _testEntityList.erase(it);
+        }
+    }
+
+    void OnComponentRegistered(Component * component, TypeIndex typeIndex) override {
+        Log(RYME_ANCHOR, "TestSystem::OnComponentRegistered ({})", typeIndex.name());
+
+        if (typeIndex.hash_code() == typeid(TestComponent).hash_code()) {
+            _testComponentList.push_back(static_cast<TestComponent *>(component));
+        }
+    }
+
+    void OnComponentUnregistered(Component * component) override {
+        Log(RYME_ANCHOR, "TestSystem::OnComponentUnregistered");
+
+        auto it = std::find(_testComponentList.begin(), _testComponentList.end(), component);
+        if (it != _testComponentList.end()) {
+            _testComponentList.erase(it);
+        }
+    }
+
+
+private:
+
+    List<TestEntity *> _testEntityList;
+
+    List<TestComponent *> _testComponentList;
+
+};
+
 int main(int argc, char ** argv)
 {
     try {
@@ -76,13 +138,17 @@ int main(int argc, char ** argv)
             .WindowSize = { 1024, 768 },
         });
         
-        TestEntity * testEntity = new TestEntity();
+        World::AddSystem(new TestSystem());
 
-        TestComponent * testComponent = new TestComponent();
+        for (int i = 0; i < 5; ++i) {
+            World::GetRootEntity()
+                ->AddEntity(new TestEntity())
+                ->AddComponent(new TestComponent());
 
-        testEntity->AddComponent(testComponent);
-
-        World::AddChild(testEntity);
+            World::GetRootEntity()
+                ->AddEntity(new Entity())
+                ->AddComponent(new Component());
+        }
 
         Run();
 

@@ -6,8 +6,11 @@
 #include <Ryme/Containers.hpp>
 #include <Ryme/String.hpp>
 #include <Ryme/Transform.hpp>
+#include <Ryme/Types.hpp>
 
 namespace ryme {
+
+using TypeIndex = TypeIndex;
 
 class RYME_API Entity
 {
@@ -28,22 +31,26 @@ public:
     }
 
     void SetName(String name);
-    
-    void AddComponent(Component * component);
 
+    Component * AddComponent(Component * component, TypeIndex typeIndex);
+    
     void RemoveComponent(Component * component);
 
     inline Span<Component *> GetComponentList() {
         return _componentList;
     }
 
-    void AddChild(Entity * child);
+    Span<Component *> GetComponentList(TypeIndex typeIndex);
 
-    void RemoveChild(Entity * child);
+    Entity * AddEntity(Entity * entity, TypeIndex typeIndex);
 
-    inline Span<Entity *> GetChildList() {
-        return _childList;
+    void RemoveEntity(Entity * entity);
+
+    inline Span<Entity *> GetEntityList() {
+        return _entityList;
     }
+
+    Span<Entity *> GetEntityList(TypeIndex typeIndex);
     
     inline Transform& GetTransform() {
         return _transform;
@@ -85,6 +92,28 @@ public:
 
     void Render();
 
+    // TypeIndex helpers
+    
+    template <typename T>
+    inline Component * AddComponent(T * component) {
+        return AddComponent(component, TypeIndex(typeid(T)));
+    }
+
+    template <typename T>
+    inline Span<Component *> GetComponentList() {
+        return GetComponentList(TypeIndex(typeid(T)));
+    }
+
+    template <typename T>
+    inline Entity * AddEntity(T * entity) {
+        return AddEntity(entity, TypeIndex(typeid(T)));
+    }
+
+    template <typename T>
+    inline Span<Entity *> GetEntityList() {
+        return GetEntityList(TypeIndex(typeid(T)));
+    }
+
 protected:
 
     virtual void BeforeUpdate() { };
@@ -105,7 +134,11 @@ private:
 
     List<Component *> _componentList;
 
-    List<Entity *> _childList;
+    Map<TypeIndex, List<Component *>> _componentListTypeMap;
+
+    List<Entity *> _entityList;
+
+    Map<TypeIndex, List<Entity *>> _entityListTypeMap;
 
     String _name;
 

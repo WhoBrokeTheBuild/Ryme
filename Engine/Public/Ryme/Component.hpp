@@ -3,6 +3,7 @@
 
 #include <Ryme/Config.hpp>
 
+
 namespace ryme {
 
 class Entity;
