@@ -141,12 +141,10 @@ int main(int argc, char ** argv)
         World::AddSystem(new TestSystem());
 
         for (int i = 0; i < 5; ++i) {
-            World::GetRootEntity()
-                ->AddEntity(new TestEntity())
+            World::AddEntity(new TestEntity())
                 ->AddComponent(new TestComponent());
 
-            World::GetRootEntity()
-                ->AddEntity(new Entity())
+            World::AddEntity(new Entity())
                 ->AddComponent(new Component());
         }
 

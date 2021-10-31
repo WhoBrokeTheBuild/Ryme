@@ -19,7 +19,7 @@ Entity::~Entity()
         delete entity;
     }
 
-    World::UnregisterEntity(this);
+    World::UnregisterGlobalEntity(this);
 }
 
 void Entity::SetName(String name)
@@ -29,7 +29,7 @@ void Entity::SetName(String name)
 
 Component * Entity::AddComponent(Component * component, TypeIndex typeIndex)
 {
-    World::RegisterComponent(component, typeIndex);
+    World::RegisterGlobalComponent(component, typeIndex);
 
     auto it = std::find(_componentList.begin(), _componentList.end(), component);
     if (it == _componentList.end()) {
@@ -49,7 +49,7 @@ Component * Entity::AddComponent(Component * component, TypeIndex typeIndex)
 
 void Entity::RemoveComponent(Component * component)
 {
-    World::UnregisterComponent(component);
+    World::UnregisterGlobalComponent(component);
 
     auto it = std::find(_componentList.begin(), _componentList.end(), component);
     if (it != _componentList.end()) {
@@ -79,7 +79,7 @@ Span<Component *> Entity::GetComponentList(TypeIndex typeIndex)
 
 Entity * Entity::AddEntity(Entity * entity, TypeIndex typeIndex)
 {
-    World::RegisterEntity(entity, typeIndex);
+    World::RegisterGlobalEntity(entity, typeIndex);
 
     auto it = std::find(_entityList.begin(), _entityList.end(), entity);
     if (it == _entityList.end()) {
@@ -103,7 +103,7 @@ Entity * Entity::AddEntity(Entity * entity, TypeIndex typeIndex)
 
 void Entity::RemoveEntity(Entity * entity)
 {
-    World::UnregisterEntity(entity);
+    World::UnregisterGlobalEntity(entity);
 
     auto it = std::find(_entityList.begin(), _entityList.end(), entity);
     if (it != _entityList.end()) {

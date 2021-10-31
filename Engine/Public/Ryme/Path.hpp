@@ -176,7 +176,7 @@ Path GetCurrentPath();
 
 } // namespace ryme
 
-template<>
+template <>
 struct fmt::formatter<ryme::Path> : public fmt::formatter<std::string_view>
 {
     template <typename FormatContext>

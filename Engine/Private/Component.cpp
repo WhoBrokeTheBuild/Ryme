@@ -10,7 +10,7 @@ Component::~Component()
         _entity->RemoveComponent(this);
     }
     
-    World::UnregisterComponent(this);
+    World::UnregisterGlobalComponent(this);
 }
 
 void Component::Attach(Entity * entity)

@@ -37,33 +37,6 @@ RYME_API
 void Render();
 
 RYME_API
-Entity * GetRootEntity();
-
-RYME_API
-Entity * RegisterEntity(Entity * entity, TypeIndex typeIndex);
-
-RYME_API
-void UnregisterEntity(Entity * entity);
-
-RYME_API
-Span<Entity *> GetEntityList();
-
-RYME_API
-Span<Entity *> GetEntityList(TypeIndex typeIndex);
-
-RYME_API
-Component * RegisterComponent(Component * component, TypeIndex typeIndex);
-
-RYME_API
-void UnregisterComponent(Component * component);
-
-RYME_API
-Span<Component *> GetComponentList();
-
-RYME_API
-Span<Component *> GetComponentList(TypeIndex typeIndex);
-
-RYME_API
 System * AddSystem(System * system, TypeIndex typeIndex);
 
 RYME_API
@@ -75,27 +48,58 @@ Span<System *> GetSystemList();
 RYME_API
 System * GetSystem(TypeIndex typeIndex);
 
-// TypeIndex helpers
+// Root
 
-template <typename T>
-inline void RegisterComponent(T * component) {
-    RegisterComponent(component, TypeIndex(typeid(T)));
+RYME_API
+Entity * GetRootEntity();
+
+RYME_API
+inline Entity * AddEntity(Entity * entity, TypeIndex typeIndex) {
+    return GetRootEntity()->AddEntity(entity, typeIndex);
 }
 
-template <typename T>
-inline Span<Component *> GetComponentList() {
-    return GetComponentList(TypeIndex(typeid(T)));
+RYME_API
+inline void RemoveEntity(Entity * entity) {
+    return GetRootEntity()->RemoveEntity(entity);
 }
 
-template <typename T>
-inline void RegisterEntity(T * entity) {
-    RegisterEntity(entity, TypeIndex(typeid(T)));
-}
-
-template <typename T>
+RYME_API
 inline Span<Entity *> GetEntityList() {
-    return GetEntityList(TypeIndex(typeid(T)));
+    return GetRootEntity()->GetEntityList();
 }
+
+RYME_API
+inline Span<Entity *> GetEntityList(TypeIndex typeIndex) {
+    return GetRootEntity()->GetEntityList(typeIndex);
+}
+
+// Global
+
+RYME_API
+Entity * RegisterGlobalEntity(Entity * entity, TypeIndex typeIndex);
+
+RYME_API
+void UnregisterGlobalEntity(Entity * entity);
+
+RYME_API
+Span<Entity *> GetGlobalEntityList();
+
+RYME_API
+Span<Entity *> GetGlobalEntityList(TypeIndex typeIndex);
+
+RYME_API
+Component * RegisterGlobalComponent(Component * component, TypeIndex typeIndex);
+
+RYME_API
+void UnregisterGlobalComponent(Component * component);
+
+RYME_API
+Span<Component *> GetGlobalComponentList();
+
+RYME_API
+Span<Component *> GetGlobalComponentList(TypeIndex typeIndex);
+
+// TypeIndex helpers
 
 template <typename T>
 inline void AddSystem(T * system) {
@@ -110,6 +114,41 @@ inline Span<System *> GetSystemList() {
 template <typename T>
 inline Span<System *> GetSystem() {
     return GetSystemList(TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline Entity * AddEntity(T * entity) {
+    return AddEntity(entity, TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline void RemoveEntity(T * entity) {
+    return RemoveEntity(entity, TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline Span<Entity *> GetEntityList() {
+    return GetEntityList(TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline void RegisterGlobalEntity(T * entity) {
+    RegisterGlobalEntity(entity, TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline Span<Entity *> GetGlobalEntityList() {
+    return GetGlobalEntityList(TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline void RegisterGlobalComponent(T * component) {
+    RegisterGlobalComponent(component, TypeIndex(typeid(T)));
+}
+
+template <typename T>
+inline Span<Component *> GetGlobalComponentList() {
+    return GetGlobalComponentList(TypeIndex(typeid(T)));
 }
 
 } // namespace World

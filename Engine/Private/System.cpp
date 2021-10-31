@@ -1,4 +1,5 @@
 #include <Ryme/System.hpp>
+#include <Ryme/World.hpp>
 
 namespace ryme {
 

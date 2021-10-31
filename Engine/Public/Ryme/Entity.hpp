@@ -10,8 +10,6 @@
 
 namespace ryme {
 
-using TypeIndex = TypeIndex;
-
 class RYME_API Entity
 {
 public:

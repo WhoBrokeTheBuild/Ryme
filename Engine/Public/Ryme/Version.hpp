@@ -125,7 +125,7 @@ struct RYME_API Version
 
 } // namespace ryme
 
-template<>
+template <>
 struct fmt::formatter<ryme::Version> : public fmt::formatter<std::string_view>
 {
     template <typename FormatContext>
