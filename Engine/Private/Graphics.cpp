@@ -46,7 +46,29 @@ VkQueue _vkPresentQueue = VK_NULL_HANDLE;
 
 VmaAllocator _vmaAllocator = VK_NULL_HANDLE;
 
-void initWindow(String windowTitle, Vec2i windowSize);
+List<VkSemaphore> _vkImageAvailableSemaphoreList;
+
+List<VkSemaphore> _vkRenderingFinishedSemaphoreList;
+
+List<VkFence> _vkInFlightFenceList;
+
+List<VkFence> _vkImageInFlightList;
+
+int _backbufferCount = 2;
+
+VkExtent2D _vkSwapChainExtent;
+
+Vec2i _windowSize;
+
+VkSwapchainKHR _vkSwapChain = VK_NULL_HANDLE;
+
+VkFormat _vkSwapChainImageFormat;
+
+List<VkImage> _vkSwapChainImageList;
+
+List<VkImageView> _vkSwapChainImageViewList;
+
+void initWindow(String windowTitle);
 void termWindow();
 void initInstance();
 void termInstance();
@@ -61,6 +83,11 @@ void initSwapChain();
 void termSwapChain();
 void initSyncObjects();
 void termSyncObjects();
+
+String VkResultToString(VkResult vkResult);
+String VkFormatToString(VkFormat vkFormat);
+String VkColorSpaceToString(VkColorSpaceKHR vkColorSpace);
+String VkPresentModeToString(VkPresentModeKHR vkPresentMode);
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -100,16 +127,22 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
 RYME_API
 void Init(String windowTitle, Vec2i windowSize)
 {
-    initWindow(windowTitle, windowSize);
+    _windowSize = windowSize;
+    
+    initWindow(windowTitle);
     initInstance();
     initSurface();
     initDevice();
     initAllocator();
+    initSwapChain();
+    initSyncObjects();
 }
 
 RYME_API
 void Term()
 {
+    termSyncObjects();
+    termSwapChain();
     termAllocator();
     termDevice();
     termSurface();
@@ -117,7 +150,7 @@ void Term()
     termWindow();
 }
 
-void initWindow(String windowTitle, Vec2i windowSize)
+void initWindow(String windowTitle)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
         throw Exception("SDL_Init failed, {}", SDL_GetError());
@@ -134,8 +167,8 @@ void initWindow(String windowTitle, Vec2i windowSize)
         windowTitle.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        windowSize.x,
-        windowSize.y,
+        _windowSize.x,
+        _windowSize.y,
         SDL_WINDOW_VULKAN
     );
 
@@ -607,22 +640,570 @@ void termAllocator()
 
 void initSwapChain()
 {
+    VkResult vkResult;
 
+    uint32_t formatCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(
+        _vkPhysicalDevice,
+        _vkSurface,
+        &formatCount,
+        nullptr
+    );
+
+    if (formatCount == 0) {
+        throw Exception("vkGetPhysicalDeviceSurfaceFormatsKHR() failed, no surface formats found");
+    }
+
+    List<VkSurfaceFormatKHR> formatList(formatCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(
+        _vkPhysicalDevice,
+        _vkSurface,
+        &formatCount,
+        formatList.data()
+    );
+
+    Log(RYME_ANCHOR, "Available Vulkan Surface Formats:");
+    VkSurfaceFormatKHR surfaceFormat = formatList[0];
+    for (const auto& format : formatList) {
+        bool isSRGB = (
+            format.format == VK_FORMAT_R8G8B8A8_SRGB ||
+            format.format == VK_FORMAT_B8G8R8A8_SRGB
+        );
+
+        if (isSRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            surfaceFormat = format;
+        }
+
+        Log(RYME_ANCHOR, "\t{} {}",
+            VkFormatToString(format.format),
+            VkColorSpaceToString(format.colorSpace));
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {}",
+        VkFormatToString(surfaceFormat.format));
+
+    Log(RYME_ANCHOR, "Vuilkan Swap Chain Image Color Space: {}",
+        VkColorSpaceToString(surfaceFormat.colorSpace));
+
+    uint32_t presentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        _vkPhysicalDevice,
+        _vkSurface,
+        &presentModeCount,
+        nullptr
+    );
+
+    if (presentModeCount == 0) {
+        throw Exception("vkGetPhysicalDeviceSurfacePresentModeKHR() failed, no present modes found");
+    }
+
+    List<VkPresentModeKHR> presentModeList(presentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        _vkPhysicalDevice,
+        _vkSurface,
+        &presentModeCount,
+        presentModeList.data()
+    );
+
+    // VK_PRESENT_MODE_IMMEDIATE_KHR = Do not wait for vsync, may cause screen tearing
+    // VK_PRESENT_MODE_FIFO_KHR = Queue of presentation requests, wait for vsync, required to be supported
+    //    equivalent to {wgl|glX|egl}SwapBuffers(1)
+    // VK_PRESENT_MODE_FIFO_RELAXED_KHR = Similar to FIFO, but will not wait for a second vsync period 
+    //    if the first has already passed, may cause screen tearing
+    //    equivalent to {wgl|glX}SwapBuffers(-1)
+    // VK_PRESENT_MODE_MAILBOX_KHR = Queue of presentation requests, wait for vsync, replaces entries if the queue is full
+
+    Log(RYME_ANCHOR, "Available Vulkan Present Modes:");
+
+    // FIFO is the only present mode required to be supported
+    VkPresentModeKHR swapChainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+    for (const auto& presentMode : presentModeList) {
+        if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            swapChainPresentMode = presentMode;
+        }
+
+        Log(RYME_ANCHOR, "\t{}", VkPresentModeToString(presentMode));
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Present Mode: {}",
+        VkPresentModeToString(swapChainPresentMode));
+
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        _vkPhysicalDevice,
+        _vkSurface,
+        &surfaceCapabilities
+    );
+
+    _vkSwapChainExtent = surfaceCapabilities.currentExtent;
+
+    if (_vkSwapChainExtent.width == UINT32_MAX || _vkSwapChainExtent.height == UINT32_MAX) {
+        const Vec2i& size = _windowSize;
+
+        _vkSwapChainExtent.width = std::clamp(
+            static_cast<uint32_t>(size.x),
+            surfaceCapabilities.minImageExtent.width,
+            surfaceCapabilities.maxImageExtent.width
+        );
+
+        _vkSwapChainExtent.height = std::clamp(
+            static_cast<uint32_t>(size.y),
+            surfaceCapabilities.minImageExtent.height,
+            surfaceCapabilities.maxImageExtent.height
+        );
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Extent: {}x{}",
+        _vkSwapChainExtent.width,
+        _vkSwapChainExtent.height
+    );
+
+    uint32_t imageCount = std::clamp(
+        (unsigned)_backbufferCount,
+        surfaceCapabilities.minImageCount,
+        surfaceCapabilities.maxImageCount
+    );
+
+    Log(RYME_ANCHOR, "Vulakn Swap Chain Image Count: {}", imageCount);
+
+    VkSwapchainKHR oldSwapChain = _vkSwapChain;
+
+    uint32_t queueFamilyIndices[] = {
+        _vkGraphicsQueueFamilyIndex,
+        _vkPresentQueueFamilyIndex,
+    };
+
+    VkSharingMode sharingMode = (
+        _vkGraphicsQueueFamilyIndex == _vkPresentQueueFamilyIndex
+        ? VK_SHARING_MODE_EXCLUSIVE
+        : VK_SHARING_MODE_CONCURRENT
+    );
+
+    VkSwapchainCreateInfoKHR swapChainCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .pNext = nullptr,
+        .flags = 0,
+        .surface = _vkSurface,
+        .minImageCount = imageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = _vkSwapChainExtent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageSharingMode = sharingMode,
+        .queueFamilyIndexCount = 2,
+        .pQueueFamilyIndices = queueFamilyIndices,
+        .preTransform = surfaceCapabilities.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = swapChainPresentMode,
+        .clipped = VK_TRUE,
+        .oldSwapchain = oldSwapChain,
+    };
+
+    vkResult = vkCreateSwapchainKHR(
+        _vkDevice,
+        &swapChainCreateInfo,
+        nullptr,
+        &_vkSwapChain
+    );
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vkCreateSwapchainKHR() failed");
+    }
+
+    if (oldSwapChain) {
+        vkDestroySwapchainKHR(_vkDevice, oldSwapChain, nullptr);
+        oldSwapChain = VK_NULL_HANDLE;
+    }
+
+    _vkSwapChainImageFormat = surfaceFormat.format;
+
+    vkGetSwapchainImagesKHR(
+        _vkDevice,
+        _vkSwapChain,
+        &imageCount,
+        nullptr
+    );
+
+    _vkSwapChainImageList.resize(imageCount, VK_NULL_HANDLE);
+
+    vkGetSwapchainImagesKHR(
+        _vkDevice,
+        _vkSwapChain,
+        &imageCount,
+        _vkSwapChainImageList.data()
+    );
+
+    _vkSwapChainImageViewList.resize(imageCount, VK_NULL_HANDLE);
+
+    for (unsigned i = 0; i < _backbufferCount; ++i) {
+        if (_vkSwapChainImageViewList[i]) {
+            vkDestroyImageView(_vkDevice, _vkSwapChainImageViewList[i], nullptr);
+            _vkSwapChainImageViewList[i] = VK_NULL_HANDLE;
+        }
+
+        VkImageViewCreateInfo imageViewCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .image = _vkSwapChainImageList[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = _vkSwapChainImageFormat,
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+
+        vkResult = vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr, &_vkSwapChainImageViewList[i]);
+        if (vkResult != VK_SUCCESS) {
+            throw Exception("vkCreateImageView() failed for image view #{}", i);
+        }
+
+        _backbufferCount = imageCount;
+
+        // InitDepthBuffer();
+        // InitRenderPass();
+        // InitDescriptorPool();
+        // InitPipelineLayout();
+        // InitFramebuffers();
+        // InitCommandBuffers();
+    }
 }
 
 void termSwapChain()
 {
+    // TermCommandBuffers();
+    // TermFramebuffers();
+    // TermPipelineLayout();
+    // TermDescriptorPool();
+    // TermRenderPass();
+    // TermDepthBuffer();
 
+    for (auto& imageView : _vkSwapChainImageViewList) {
+        if (imageView) {
+            vkDestroyImageView(_vkDevice, imageView, nullptr);
+            imageView = nullptr;
+        }
+    }
+
+    if (_vkSwapChain) {
+        vkDestroySwapchainKHR(_vkDevice, _vkSwapChain, nullptr);
+        _vkSwapChain = VK_NULL_HANDLE;
+    }
+}
+
+void resetSwapChain()
+{
+    if (_vkSwapChain) {
+        vkDeviceWaitIdle(_vkDevice);
+
+        initSwapChain();
+    }
 }
 
 void initSyncObjects()
 {
+    VkResult vkResult;
 
+    _vkImageAvailableSemaphoreList.resize(_backbufferCount, VK_NULL_HANDLE);
+    _vkRenderingFinishedSemaphoreList.resize(_backbufferCount, VK_NULL_HANDLE);
+    _vkInFlightFenceList.resize(_backbufferCount, VK_NULL_HANDLE);
+    _vkImageInFlightList.resize(_backbufferCount, VK_NULL_HANDLE);
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+    };
+
+    VkFenceCreateInfo fenceCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    };
+
+    for (unsigned i = 0; i < _backbufferCount; ++i) {
+        vkResult = vkCreateSemaphore(
+            _vkDevice,
+            &semaphoreCreateInfo,
+            nullptr,
+            &_vkImageAvailableSemaphoreList[i]
+        );
+
+        if (vkResult != VK_SUCCESS) {
+            throw Exception("vkCreateSemaphore() failed");
+        }   
+
+        vkResult = vkCreateSemaphore(
+            _vkDevice,
+            &semaphoreCreateInfo,
+            nullptr,
+            &_vkRenderingFinishedSemaphoreList[i]
+        );
+
+        if (vkResult != VK_SUCCESS) {
+            throw Exception("vkCreateSemaphore() failed");
+        }
+
+        vkResult = vkCreateFence(
+            _vkDevice,
+            &fenceCreateInfo,
+            nullptr,
+            &_vkInFlightFenceList[i]
+        );
+
+        if (vkResult != VK_SUCCESS) {
+            throw Exception("vkCreateFence() failed");
+        }
+    }
 }
 
 void termSyncObjects()
 {
+    for (auto& fence : _vkImageInFlightList) {
+        // ??? should we destroy here, see below.
+        fence = VK_NULL_HANDLE;
+    }
 
+    for (auto& fence : _vkInFlightFenceList) {
+        vkDestroyFence(_vkDevice, fence, nullptr);
+        fence = nullptr; // should it be VK_NULL_HANDLE?
+    }
+
+    for (auto& semaphore : _vkRenderingFinishedSemaphoreList) {
+        vkDestroySemaphore(_vkDevice, semaphore, nullptr);
+        semaphore = nullptr;
+    }
+
+    for (auto& semaphore : _vkImageAvailableSemaphoreList) {
+        vkDestroySemaphore(_vkDevice, semaphore, nullptr);
+        semaphore = nullptr;
+    }
+}
+
+String VkResultToString(VkResult vkResult)
+{
+    switch (vkResult) {
+        case VK_SUCCESS:
+            return "VK_SUCCESS";
+        case VK_NOT_READY:
+            return "VK_NOT_READY";
+        case VK_TIMEOUT:
+            return "VK_TIMEOUT";
+        case VK_EVENT_SET:
+            return "VK_EVENT_SET";
+        case VK_EVENT_RESET:
+            return "VK_EVENT_RESET";
+        case VK_INCOMPLETE:
+            return "VK_INCOMPLETE";
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            return "VK_ERROR_OUT_OF_HOST_MEMORY";
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+        case VK_ERROR_INITIALIZATION_FAILED:
+            return "VK_ERROR_INITIALIZATION_FAILED";
+        case VK_ERROR_DEVICE_LOST:
+            return "VK_ERROR_DEVICE_LOST";
+        case VK_ERROR_MEMORY_MAP_FAILED:
+            return "VK_ERROR_MEMORY_MAP_FAILED";
+        case VK_ERROR_LAYER_NOT_PRESENT:
+            return "VK_ERROR_LAYER_NOT_PRESENT";
+        case VK_ERROR_EXTENSION_NOT_PRESENT:
+            return "VK_ERROR_EXTENSION_NOT_PRESENT";
+        case VK_ERROR_FEATURE_NOT_PRESENT:
+            return "VK_ERROR_FEATURE_NOT_PRESENT";
+        case VK_ERROR_INCOMPATIBLE_DRIVER:
+            return "VK_ERROR_INCOMPATIBLE_DRIVER";
+        case VK_ERROR_TOO_MANY_OBJECTS:
+            return "VK_ERROR_TOO_MANY_OBJECTS";
+        case VK_ERROR_FORMAT_NOT_SUPPORTED:
+            return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+        case VK_ERROR_FRAGMENTED_POOL:
+            return "VK_ERROR_FRAGMENTED_POOL";
+        case VK_ERROR_UNKNOWN:
+            return "VK_ERROR_UNKNOWN";
+        case VK_ERROR_OUT_OF_POOL_MEMORY:
+            return "VK_ERROR_OUT_OF_POOL_MEMORY";
+        case VK_ERROR_INVALID_EXTERNAL_HANDLE:
+            return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
+        case VK_ERROR_FRAGMENTATION:
+            return "VK_ERROR_FRAGMENTATION";
+        case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
+            return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
+        default:
+            return fmt::format("Unknown ({})", vkResult);
+    }
+}
+
+String VkFormatToString(VkFormat vkFormat)
+{
+    // Note: All formats that do not include RGBA have been removed for brevity
+    switch (vkFormat) {
+        case VK_FORMAT_UNDEFINED:
+            return "VK_FORMAT_UNDEFINED";
+        case VK_FORMAT_R8G8B8A8_UNORM:
+            return "VK_FORMAT_R8G8B8A8_UNORM";
+        case VK_FORMAT_R8G8B8A8_SNORM:
+            return "VK_FORMAT_R8G8B8A8_SNORM";
+        case VK_FORMAT_R8G8B8A8_USCALED:
+            return "VK_FORMAT_R8G8B8A8_USCALED";
+        case VK_FORMAT_R8G8B8A8_SSCALED:
+            return "VK_FORMAT_R8G8B8A8_SSCALED";
+        case VK_FORMAT_R8G8B8A8_UINT:
+            return "VK_FORMAT_R8G8B8A8_UINT";
+        case VK_FORMAT_R8G8B8A8_SINT:
+            return "VK_FORMAT_R8G8B8A8_SINT";
+        case VK_FORMAT_R8G8B8A8_SRGB:
+            return "VK_FORMAT_R8G8B8A8_SRGB";
+        case VK_FORMAT_B8G8R8A8_UNORM:
+            return "VK_FORMAT_B8G8R8A8_UNORM";
+        case VK_FORMAT_B8G8R8A8_SNORM:
+            return "VK_FORMAT_B8G8R8A8_SNORM";
+        case VK_FORMAT_B8G8R8A8_USCALED:
+            return "VK_FORMAT_B8G8R8A8_USCALED";
+        case VK_FORMAT_B8G8R8A8_SSCALED:
+            return "VK_FORMAT_B8G8R8A8_SSCALED";
+        case VK_FORMAT_B8G8R8A8_UINT:
+            return "VK_FORMAT_B8G8R8A8_UINT";
+        case VK_FORMAT_B8G8R8A8_SINT:
+            return "VK_FORMAT_B8G8R8A8_SINT";
+        case VK_FORMAT_B8G8R8A8_SRGB:
+            return "VK_FORMAT_B8G8R8A8_SRGB";
+        case VK_FORMAT_A8B8G8R8_UNORM_PACK32:
+            return "VK_FORMAT_A8B8G8R8_UNORM_PACK32";
+        case VK_FORMAT_A8B8G8R8_SNORM_PACK32:
+            return "VK_FORMAT_A8B8G8R8_SNORM_PACK32";
+        case VK_FORMAT_A8B8G8R8_USCALED_PACK32:
+            return "VK_FORMAT_A8B8G8R8_USCALED_PACK32";
+        case VK_FORMAT_A8B8G8R8_SSCALED_PACK32:
+            return "VK_FORMAT_A8B8G8R8_SSCALED_PACK32";
+        case VK_FORMAT_A8B8G8R8_UINT_PACK32:
+            return "VK_FORMAT_A8B8G8R8_UINT_PACK32";
+        case VK_FORMAT_A8B8G8R8_SINT_PACK32:
+            return "VK_FORMAT_A8B8G8R8_SINT_PACK32";
+        case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+            return "VK_FORMAT_A8B8G8R8_SRGB_PACK32";
+        case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
+            return "VK_FORMAT_A2R10G10B10_UNORM_PACK32";
+        case VK_FORMAT_A2R10G10B10_SNORM_PACK32:
+            return "VK_FORMAT_A2R10G10B10_SNORM_PACK32";
+        case VK_FORMAT_A2R10G10B10_USCALED_PACK32:
+            return "VK_FORMAT_A2R10G10B10_USCALED_PACK32";
+        case VK_FORMAT_A2R10G10B10_SSCALED_PACK32:
+            return "VK_FORMAT_A2R10G10B10_SSCALED_PACK32";
+        case VK_FORMAT_A2R10G10B10_UINT_PACK32:
+            return "VK_FORMAT_A2R10G10B10_UINT_PACK32";
+        case VK_FORMAT_A2R10G10B10_SINT_PACK32:
+            return "VK_FORMAT_A2R10G10B10_SINT_PACK32";
+        case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+            return "VK_FORMAT_A2B10G10R10_UNORM_PACK32";
+        case VK_FORMAT_A2B10G10R10_SNORM_PACK32:
+            return "VK_FORMAT_A2B10G10R10_SNORM_PACK32";
+        case VK_FORMAT_A2B10G10R10_USCALED_PACK32:
+            return "VK_FORMAT_A2B10G10R10_USCALED_PACK32";
+        case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:
+            return "VK_FORMAT_A2B10G10R10_SSCALED_PACK32";
+        case VK_FORMAT_A2B10G10R10_UINT_PACK32:
+            return "VK_FORMAT_A2B10G10R10_UINT_PACK32";
+        case VK_FORMAT_A2B10G10R10_SINT_PACK32:
+            return "VK_FORMAT_A2B10G10R10_SINT_PACK32";
+        case VK_FORMAT_R16G16B16A16_UNORM:
+            return "VK_FORMAT_R16G16B16A16_UNORM";
+        case VK_FORMAT_R16G16B16A16_SNORM:
+            return "VK_FORMAT_R16G16B16A16_SNORM";
+        case VK_FORMAT_R16G16B16A16_USCALED:
+            return "VK_FORMAT_R16G16B16A16_USCALED";
+        case VK_FORMAT_R16G16B16A16_SSCALED:
+            return "VK_FORMAT_R16G16B16A16_SSCALED";
+        case VK_FORMAT_R16G16B16A16_UINT:
+            return "VK_FORMAT_R16G16B16A16_UINT";
+        case VK_FORMAT_R16G16B16A16_SINT:
+            return "VK_FORMAT_R16G16B16A16_SINT";
+        case VK_FORMAT_R16G16B16A16_SFLOAT:
+            return "VK_FORMAT_R16G16B16A16_SFLOAT";
+        case VK_FORMAT_R32G32B32A32_UINT:
+            return "VK_FORMAT_R32G32B32A32_UINT";
+        case VK_FORMAT_R32G32B32A32_SINT:
+            return "VK_FORMAT_R32G32B32A32_SINT";
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            return "VK_FORMAT_R32G32B32A32_SFLOAT";
+        case VK_FORMAT_R64G64B64A64_UINT:
+            return "VK_FORMAT_R64G64B64A64_UINT";
+        case VK_FORMAT_R64G64B64A64_SINT:
+            return "VK_FORMAT_R64G64B64A64_SINT";
+        case VK_FORMAT_R64G64B64A64_SFLOAT:
+            return "VK_FORMAT_R64G64B64A64_SFLOAT";
+        case VK_FORMAT_D16_UNORM:
+            return "VK_FORMAT_D16_UNORM";
+        case VK_FORMAT_D32_SFLOAT:
+            return "VK_FORMAT_D32_SFLOAT";
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+            return "VK_FORMAT_D16_UNORM_S8_UINT";
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+            return "VK_FORMAT_D24_UNORM_S8_UINT";
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return "VK_FORMAT_D32_SFLOAT_S8_UINT";
+        default:
+            return fmt::format("Unknown ({})", vkFormat);
+    }
+}
+
+String VkColorSpaceToString(VkColorSpaceKHR vkColorSpace)
+{
+    switch (vkColorSpace) {
+        case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
+            return "VK_COLOR_SPACE_SRGB_NONLINEAR_KHR";
+        case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
+            return "VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT";
+        case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
+            return "VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT";
+        case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT:
+            return "VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT";
+        case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT:
+            return "VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT";
+        case VK_COLOR_SPACE_BT709_LINEAR_EXT:
+            return "VK_COLOR_SPACE_BT709_LINEAR_EXT";
+        case VK_COLOR_SPACE_BT709_NONLINEAR_EXT:
+            return "VK_COLOR_SPACE_BT709_NONLINEAR_EXT";
+        case VK_COLOR_SPACE_BT2020_LINEAR_EXT:
+            return "VK_COLOR_SPACE_BT2020_LINEAR_EXT";
+        case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+            return "VK_COLOR_SPACE_HDR10_ST2084_EXT";
+        case VK_COLOR_SPACE_DOLBYVISION_EXT:
+            return "VK_COLOR_SPACE_DOLBYVISION_EXT";
+        case VK_COLOR_SPACE_HDR10_HLG_EXT:
+            return "VK_COLOR_SPACE_HDR10_HLG_EXT";
+        case VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT:
+            return "VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT";
+        case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT:
+            return "VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT";
+        case VK_COLOR_SPACE_PASS_THROUGH_EXT:
+            return "VK_COLOR_SPACE_PASS_THROUGH_EXT";
+        case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT:
+            return "VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT";
+        default:
+            return fmt::format("Unknown ({})", vkColorSpace);
+    }
+}
+
+String VkPresentModeToString(VkPresentModeKHR vkPresentMode)
+{
+    switch (vkPresentMode) {
+        case VK_PRESENT_MODE_IMMEDIATE_KHR:
+            return "VK_PRESENT_MODE_IMMEDIATE_KHR";
+        case VK_PRESENT_MODE_MAILBOX_KHR:
+            return "VK_PRESENT_MODE_MAILBOX_KHR";
+        case VK_PRESENT_MODE_FIFO_KHR:
+            return "VK_PRESENT_MODE_FIFO_KHR";
+        case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+            return "VK_PRESENT_MODE_FIFO_RELAXED_KHR";
+        default:
+            return fmt::format("Unknown ({})", vkPresentMode);
+    }
 }
 
 } // namespace Graphics
