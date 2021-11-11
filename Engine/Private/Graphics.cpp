@@ -68,6 +68,14 @@ List<VkImage> _vkSwapChainImageList;
 
 List<VkImageView> _vkSwapChainImageViewList;
 
+VkFormat _vkDepthImageFormat;
+
+VkImage _vkDepthImage = VK_NULL_HANDLE;
+
+VmaAllocation _vmaDepthImageAllocation = VK_NULL_HANDLE;
+
+VkImageView _vkDepthImageView = VK_NULL_HANDLE;
+
 void initWindow(String windowTitle);
 void termWindow();
 void initInstance();
@@ -83,6 +91,9 @@ void initSwapChain();
 void termSwapChain();
 void initSyncObjects();
 void termSyncObjects();
+
+void initDepthBuffer();
+void termDepthBuffer();
 
 String VkResultToString(VkResult vkResult);
 String VkFormatToString(VkFormat vkFormat);
@@ -865,23 +876,23 @@ void initSwapChain()
 
         _backbufferCount = imageCount;
 
-        // InitDepthBuffer();
-        // InitRenderPass();
-        // InitDescriptorPool();
-        // InitPipelineLayout();
-        // InitFramebuffers();
-        // InitCommandBuffers();
+        initDepthBuffer();
+        // initRenderPass();
+        // initDescriptorPool();
+        // initPipelineLayout();
+        // initFramebuffers();
+        // initCommandBuffers();
     }
 }
 
 void termSwapChain()
 {
-    // TermCommandBuffers();
-    // TermFramebuffers();
-    // TermPipelineLayout();
-    // TermDescriptorPool();
-    // TermRenderPass();
-    // TermDepthBuffer();
+    // termCommandBuffers();
+    // termFramebuffers();
+    // termPipelineLayout();
+    // termDescriptorPool();
+    // termRenderPass();
+    termDepthBuffer();
 
     for (auto& imageView : _vkSwapChainImageViewList) {
         if (imageView) {
@@ -982,6 +993,128 @@ void termSyncObjects()
     for (auto& semaphore : _vkImageAvailableSemaphoreList) {
         vkDestroySemaphore(_vkDevice, semaphore, nullptr);
         semaphore = nullptr;
+    }
+}
+
+void initDepthBuffer()
+{
+    VkResult vkResult;
+
+    termDepthBuffer();
+
+    // TODO: Investigate
+    List<VkFormat> potentialFormatList = {
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D16_UNORM,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+    };
+
+    _vkDepthImageFormat = VK_FORMAT_UNDEFINED;
+
+    for (auto format : potentialFormatList) {
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(_vkPhysicalDevice, format, &formatProperties);
+
+        bool isSuitable = (
+            (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) > 0
+        );
+
+        if (isSuitable) {
+            _vkDepthImageFormat = format;
+            break;
+        }
+    }
+
+    if (_vkDepthImageFormat == VK_FORMAT_UNDEFINED) {
+        throw Exception("Unable to find suitable depth buffer image format");
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Depth Buffer Image Format: {}",
+        VkFormatToString(_vkDepthImageFormat));
+
+    VkImageCreateInfo imageCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = _vkDepthImageFormat,
+        .extent = {
+            .width = _vkSwapChainExtent.width,
+            .height = _vkSwapChainExtent.height,
+            .depth = 1,
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    VmaAllocationCreateInfo allocationCreateInfo = {
+        .flags = 0,
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+    };
+
+    vkResult = vmaCreateImage(
+        _vmaAllocator,
+        &imageCreateInfo,
+        &allocationCreateInfo,
+        &_vkDepthImage,
+        &_vmaDepthImageAllocation,
+        nullptr
+    );
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vmaCreateImage() failed, unable to create depth buffer image");
+    }
+
+    VkImageViewCreateInfo imageViewCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .image = _vkDepthImage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = _vkDepthImageFormat,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+
+    vkResult = vkCreateImageView(
+        _vkDevice,
+        &imageViewCreateInfo,
+        nullptr,
+        &_vkDepthImageView
+    );
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vkCreateImageView failed, unable to create depth buffer image view");
+    }
+}
+
+void termDepthBuffer()
+{
+    if (_vkDepthImage) {
+        vkDestroyImage(_vkDevice, _vkDepthImage, nullptr);
+        _vkDepthImage = VK_NULL_HANDLE;
+    }
+
+    if (_vmaDepthImageAllocation) {
+        vmaFreeMemory(_vmaAllocator, _vmaDepthImageAllocation);
+        _vmaDepthImageAllocation = VK_NULL_HANDLE;
+    }
+
+    if (_vkDepthImageView) {
+        vkDestroyImageView(_vkDevice, _vkDepthImageView, nullptr);
+        _vkDepthImageView = VK_NULL_HANDLE;
     }
 }
 
