@@ -76,6 +76,12 @@ VmaAllocation _vmaDepthImageAllocation = VK_NULL_HANDLE;
 
 VkImageView _vkDepthImageView = VK_NULL_HANDLE;
 
+VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
+
+VkDescriptorPool _vkDescriptorPool = VK_NULL_HANDLE;
+
+List<VkDescriptorSetLayout> _vkDescriptorSetLayoutList;
+
 void initWindow(String windowTitle);
 void termWindow();
 void initInstance();
@@ -877,7 +883,7 @@ void initSwapChain()
         _backbufferCount = imageCount;
 
         initDepthBuffer();
-        // initRenderPass();
+        initRenderPass();
         // initDescriptorPool();
         // initPipelineLayout();
         // initFramebuffers();
@@ -891,7 +897,7 @@ void termSwapChain()
     // termFramebuffers();
     // termPipelineLayout();
     // termDescriptorPool();
-    // termRenderPass();
+    termRenderPass();
     termDepthBuffer();
 
     for (auto& imageView : _vkSwapChainImageViewList) {
@@ -976,23 +982,24 @@ void initSyncObjects()
 void termSyncObjects()
 {
     for (auto& fence : _vkImageInFlightList) {
-        // ??? should we destroy here, see below.
+        // TODO: This could blow up be careful.
+        vkDestroyFence(_vkDevice, fence, VK_NULL_HANDLE);
         fence = VK_NULL_HANDLE;
     }
 
     for (auto& fence : _vkInFlightFenceList) {
-        vkDestroyFence(_vkDevice, fence, nullptr);
-        fence = nullptr; // should it be VK_NULL_HANDLE?
+        vkDestroyFence(_vkDevice, fence, VK_NULL_HANDLE);
+        fence = VK_NULL_HANDLE;
     }
 
     for (auto& semaphore : _vkRenderingFinishedSemaphoreList) {
-        vkDestroySemaphore(_vkDevice, semaphore, nullptr);
-        semaphore = nullptr;
+        vkDestroySemaphore(_vkDevice, semaphore, VK_NULL_HANDLE);
+        semaphore = VK_NULL_HANDLE;
     }
 
     for (auto& semaphore : _vkImageAvailableSemaphoreList) {
-        vkDestroySemaphore(_vkDevice, semaphore, nullptr);
-        semaphore = nullptr;
+        vkDestroySemaphore(_vkDevice, semaphore, VK_NULL_HANDLE);
+        semaphore = VK_NULL_HANDLE;
     }
 }
 
@@ -1115,6 +1122,192 @@ void termDepthBuffer()
     if (_vkDepthImageView) {
         vkDestroyImageView(_vkDevice, _vkDepthImageView, nullptr);
         _vkDepthImageView = VK_NULL_HANDLE;
+    }
+}
+
+void initRenderPass()
+{
+    VkResult vkResult;
+
+    termRenderPass();
+
+    VkAttachmentDescription colorAttachmentDescription = {
+        .flags = 0,
+        .format = _vkSwapChainImageFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
+
+    VkAttachmentDescription depthAttachmentDescription = {
+        .flags = 0,
+        .format = _vkDepthImageFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+    Array<VkAttachmentDescription, 2> attachmentList = {
+        colorAttachmentDescription,
+        depthAttachmentDescription,
+    };
+
+    VkAttachmentReference colorAttachmentReference = {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+
+    VkAttachmentReference depthAttachmentReference = {
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    };
+
+    Array<VkSubpassDescription, 1> subpassDescriptionList = {
+        VkSubpassDescription {
+            .flags = 0,
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .inputAttachmentCount = 0,
+            .pInputAttachments = nullptr,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colorAttachmentReference,
+            .pResolveAttachments = nullptr,
+            .pDepthStencilAttachment = &depthAttachmentReference,
+            .preserveAttachmentCount = 0,
+            .pPreserveAttachments = nullptr,
+        },
+    };
+
+    Array<VkSubpassDependency, 1> subpassDependencyList = {
+        VkSubpassDependency {
+            .srcSubpass = VK_SUBPASS_EXTERNAL,
+            .dstSubpass = 0,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        },
+    };
+
+    VkRenderPassCreateInfo renderPassCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .attachmentCount = static_cast<uint32_t>(attachmentList.size()),
+        .pAttachments = attachmentList.data(),
+        .subpassCount = static_cast<uint32_t>(subpassDescriptionList.size()),
+        .pSubpasses = subpassDescriptionList.data(),
+        .dependencyCount = static_cast<uint32_t>(subpassDependencyList.size()),
+        .pDependencies = subpassDependencyList.data(),
+    };
+
+    vkResult = vkCreateRenderPass(_vkDevice, &renderPassCreateInfo, nullptr, &_vkRenderPass);
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vkCreateRenderPass() failed");
+    }
+}
+
+void termRenderPass()
+{
+    if (_vkRenderPass) {
+        vkDestroyRenderPass(_vkDevice, _vkRenderPass, nullptr);
+        _vkRenderPass = VK_NULL_HANDLE;
+    }
+}
+
+void initDescriptorPool()
+{
+    VkResult vkResult;
+
+    termDescriptorPool();
+
+    Array<VkDescriptorPoolSize, 1> descriptorPoolSizeList = {
+        VkDescriptorPoolSize {
+            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = static_cast<uint32_t>(1), // materialList.size() + meshList.size(), can never be 0
+        },
+    };
+
+    VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .maxSets = _backbufferCount,
+        .poolSizeCount = static_cast<uint32_t>(descriptorPoolSizeList.size()),
+        .pPoolSizes = descriptorPoolSizeList.data(),
+    };
+
+    vkResult = vkCreateDescriptorPool(
+        _vkDevice,
+        &descriptorPoolCreateInfo,
+        nullptr,
+        &_vkDescriptorPool
+    );
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vkCreateDescriptorPool() failed");
+    }
+
+    Array<VkDescriptorSetLayoutBinding, 2> descriptorSetLayoutBindingList = {
+        VkDescriptorSetLayoutBinding {
+            .binding = 0U, // TODO: ShaderGlobals::Binding,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+            .pImmutableSamplers = nullptr,
+        },
+        VkDescriptorSetLayoutBinding {
+            .binding = 1U, //TODO: ShaderTransform::Binding,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr,
+        },
+        // TODO: ShaderMaterial
+    };
+
+    _vkDescriptorSetLayoutList.resize(1, VK_NULL_HANDLE);
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindingList.size()),
+        .pBindings = descriptorSetLayoutBindingList.data(),
+    };
+
+    vkResult = vkCreateDescriptorSetLayout(
+        _vkDevice,
+        &descriptorSetLayoutCreateInfo,
+        nullptr,
+        &_vkDescriptorSetLayoutList[0]
+    );
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vkCreateDescriptorSetLayout() failed");
+    }
+}
+
+void termDescriptorPool()
+{
+    for (auto& descriptorSetLayout : _vkDescriptorSetLayoutList) {
+        if (descriptorSetLayout) {
+            vkDestroyDescriptorSetLayout(_vkDevice, descriptorSetLayout, nullptr);
+            descriptorSetLayout = VK_NULL_HANDLE;
+        }
+    }
+
+    if (_vkDescriptorPool) {
+        vkDestroyDescriptorPool(_vkDevice, _vkDescriptorPool, nullptr);
+        _vkDescriptorPool = VK_NULL_HANDLE;
     }
 }
 
