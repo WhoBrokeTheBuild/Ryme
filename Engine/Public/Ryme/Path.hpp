@@ -25,6 +25,8 @@ public:
 
     Path(const String& str);
 
+    Path(const StringView& str);
+
     Path(const char * cstr);
 
     // Appends a new element to the path with a separator

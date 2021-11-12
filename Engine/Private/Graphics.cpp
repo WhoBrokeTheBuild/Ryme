@@ -1536,6 +1536,20 @@ String VkPresentModeToString(VkPresentModeKHR vkPresentMode)
     }
 }
 
+RYME_API
+void ScriptInit(py::module m)
+{
+    m.def_submodule("Graphics")
+        .def("GetWindowSize", []() {
+            int width, height;
+            SDL_GetWindowSize(_sdlWindow, &width, &height);
+            return std::make_tuple(width, height);
+        })
+        .def("SetWindowSize", [](int width, int height) {
+            SDL_SetWindowSize(_sdlWindow, width, height);
+        });
+}
+
 } // namespace Graphics
 
 } // namespace ryme

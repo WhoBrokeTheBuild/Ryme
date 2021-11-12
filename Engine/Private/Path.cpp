@@ -43,6 +43,13 @@ Path::Path(const String& str)
 }
 
 RYME_API
+Path::Path(const StringView& str)
+    : _path(str)
+{
+    Normalize();
+}
+
+RYME_API
 Path::Path(const char * cstr)
     : _path(cstr)
 {

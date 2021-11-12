@@ -3,29 +3,57 @@
 
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
+#include <Ryme/Script.hpp>
 
 #include <fmt/format.h>
 
 #include <regex>
 #include <tuple>
 
+
 namespace ryme {
 
+///
+/// Implementation of a Semantic Version, with only Major, Minor, and Patch
+///
 struct RYME_API Version
 {
+    ///
+    /// The major component of the version major.x.x
+    ///
     int Major;
+
+    ///
+    /// The minor component of the version x.minor.x
+    ///
     int Minor;
+
+    ///
+    /// The patch component of the version x.x.patch
+    ///
     int Patch;
 
+    static void ScriptInit(py::module m);
+
+    ///
+    /// Construct a Version from three components
+    ///
+    /// @param major The major component of the version major.x.x
+    /// @param minor The minor component of the version x.minor.x
+    /// @param patch The patch component of the version x.x.patch
+    ///
     Version(int major = 0, int minor = 0, int patch = 0)
         : Major(major)
         , Minor(minor)
         , Patch(patch)
     { }
 
+    ///
+    /// Parse a Version from a string in format major.minor.patch
+    ///
     Version(const String& str)
     {
-        FromString(str);
+        ParseString(str);
     }
 
     Version(const Version& rhs)
@@ -74,6 +102,9 @@ struct RYME_API Version
         return (res == 0 || res == -1);
     }
 
+    ///
+    /// @return A version string formatted as major.minor.patch
+    ///
     inline String ToString() const
     {
         return fmt::format("{}.{}.{}", 
@@ -85,7 +116,10 @@ struct RYME_API Version
         return ToString();
     }
 
-    inline void FromString(const String& string)
+    ///
+    /// Parse a Version from a string in format major.minor.patch
+    ///
+    inline void ParseString(const String& string)
     {
         std::smatch match;
         std::regex regex("([0-9])+\\.([0-9]+)\\.([0-9]+)");
@@ -98,6 +132,11 @@ struct RYME_API Version
         }
     }
 
+    ///
+    /// Compare two versions in order of Major, then Minor, then Patch
+    ///
+    /// @returns 0 if a == b, 1 if a > b, or -1 if a < b
+    ///
     inline static int Compare(const Version& a, const Version& b)
     {
         auto cmp = [](int a, int b)

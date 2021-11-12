@@ -22,8 +22,8 @@ MACRO(CONFIGURE_FILE_LIST _input_list _output_list)
         )
 
         # Remove the ".in"
-        string(REGEX MATCH "^(.*)\\.[^.]*$" _output ${_output})
-        set(_output ${CMAKE_MATCH_1})
+        STRING(REGEX MATCH "^(.*)\\.[^.]*$" _output ${_output})
+        SET(_output ${CMAKE_MATCH_1})
 
         CONFIGURE_FILE(${_input} ${_output})
 

@@ -2,8 +2,7 @@
 #define RYME_LOG_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Path.hpp>
-#include <Ryme/Version.hpp>
+#include <Ryme/String.hpp>
 
 #include <chrono>
 #include <utility>
@@ -16,7 +15,7 @@
 
 namespace ryme {
 
-#define RYME_ANCHOR (fmt::format("{}:{}", ryme::Path(__FILE__).GetFilename().ToCString(), __LINE__))
+#define RYME_ANCHOR (fmt::format("{}:{}", ryme::Path(__FILE__).GetFilename(), __LINE__))
 
 #if defined(RYME_ENABLE_BENCHMARK)
 
@@ -37,9 +36,22 @@ namespace ryme {
 
 #endif
 
+///
+/// Log a message with a given tag
+///
+/// @param tag The prefix to the log message, wrapped in (), usually RYME_ANCHOR
+/// @param message The message to log
+///
 RYME_API
 void LogMessage(StringView tag, StringView message);
 
+///
+/// Format and Log a message with a given tag
+///
+/// @param tag The prefix to the log message, wrapped in (), usually RYME_ANCHOR
+/// @param format The format string for fmt::format()
+/// @param args... The remaining arguments to fmt::format()
+///
 template <typename... Args>
 inline void Log(StringView tag, StringView format, Args&&... args) {
     LogMessage(tag, fmt::vformat(format, fmt::make_format_args(std::forward<Args>(args)...)));
