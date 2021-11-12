@@ -54,7 +54,7 @@ List<VkFence> _vkInFlightFenceList;
 
 List<VkFence> _vkImageInFlightList;
 
-int _backbufferCount = 2;
+uint32_t _backbufferCount = 2;
 
 VkExtent2D _vkSwapChainExtent;
 
@@ -97,6 +97,10 @@ void initSwapChain();
 void termSwapChain();
 void initSyncObjects();
 void termSyncObjects();
+void initRenderPass();
+void termRenderPass();
+void initDescriptorPool();
+void termDescriptorPool();
 
 void initDepthBuffer();
 void termDepthBuffer();
