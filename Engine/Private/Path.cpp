@@ -5,6 +5,9 @@
 #include <climits>
 #include <sstream>
 
+#include <pybind11/stl.h>
+#include <pybind11/operators.h>
+
 #if defined(RYME_PLATFORM_WINDOWS)
 
     #include <direct.h>
@@ -16,6 +19,67 @@
 #endif
 
 namespace ryme {
+
+void Path::ScriptInit(py::module m)
+{
+    py::class_<Path>(m, "Path")
+
+        .def(py::init())
+
+        .def(py::init<const String&>(),
+            py::arg("str"))
+
+        .def_static("ParsePathList", &Path::ParsePathList)
+
+        .def("IsEmpty", &Path::IsEmpty)
+        .def("IsAbsolute", &Path::IsAbsolute)
+        .def("IsRelative", &Path::IsRelative)
+        .def("HasRootName", &Path::HasRootName)
+        .def("GetRootName", &Path::GetRootName)
+        .def("HasRootDirectory", &Path::HasRootDirectory)
+        .def("GetRootDirectory", &Path::GetRootDirectory)
+        .def("HasRootPath", &Path::HasRootPath)
+        .def("GetRootPath", &Path::GetRootPath)
+        .def("GetParentPath", &Path::GetParentPath)
+        .def("GetFilename", &Path::GetFilename)
+        .def("GetStem", &Path::GetStem)
+        .def("GetExtension", &Path::GetExtension)
+
+        .def(py::self == py::self)
+        .def(py::self != py::self)
+        .def(py::self /= py::self)
+        .def("__itruediv__", 
+            [](Path& lhs, py::str rhs) {
+                lhs /= Path(rhs.cast<StringView>());
+            })
+        .def(py::self += py::self)
+        .def("__iadd__", 
+            [](Path& lhs, py::str rhs) {
+                lhs += Path(rhs.cast<StringView>());
+            })
+        .def(py::self / py::self)
+        .def("__truediv__", 
+            [](Path& lhs, py::str rhs) {
+                return lhs / Path(rhs.cast<StringView>());
+            })
+        .def(py::self + py::self)
+        .def("__add__", 
+            [](Path& lhs, py::str rhs) {
+                return lhs + Path(rhs.cast<StringView>());
+            })
+
+        .def("__str__", &Path::ToString)
+
+        .def("__repr__", 
+            [](const Path& p) {
+                return fmt::format(
+                    "ryme::Path('{}')",
+                    p.ToString()
+                );
+            });
+
+    m.def("GetCurrentPath", GetCurrentPath);
+}
 
 List<Path> Path::ParsePathList(const String& str)
 {

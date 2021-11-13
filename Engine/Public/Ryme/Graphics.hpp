@@ -24,13 +24,13 @@ namespace ryme {
 namespace Graphics {
 
 RYME_API
+void ScriptInit(py::module);
+
+RYME_API
 void Init(String windowTitle, Vec2i windowSize);
 
 RYME_API
 void Term();
-
-RYME_API
-void ScriptInit(py::module);
 
 } // namespace Graphics
 

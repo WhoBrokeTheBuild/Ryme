@@ -146,6 +146,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
 }
 
 RYME_API
+void ScriptInit(py::module m)
+{
+    m.def_submodule("Graphics")
+        .def("GetWindowSize", []() {
+            int width, height;
+            SDL_GetWindowSize(_sdlWindow, &width, &height);
+            return std::make_tuple(width, height);
+        })
+        .def("SetWindowSize", [](int width, int height) {
+            SDL_SetWindowSize(_sdlWindow, width, height);
+        });
+}
+
+RYME_API
 void Init(String windowTitle, Vec2i windowSize)
 {
     _windowSize = windowSize;
@@ -1534,20 +1548,6 @@ String VkPresentModeToString(VkPresentModeKHR vkPresentMode)
         default:
             return fmt::format("Unknown ({})", vkPresentMode);
     }
-}
-
-RYME_API
-void ScriptInit(py::module m)
-{
-    m.def_submodule("Graphics")
-        .def("GetWindowSize", []() {
-            int width, height;
-            SDL_GetWindowSize(_sdlWindow, &width, &height);
-            return std::make_tuple(width, height);
-        })
-        .def("SetWindowSize", [](int width, int height) {
-            SDL_SetWindowSize(_sdlWindow, width, height);
-        });
 }
 
 } // namespace Graphics

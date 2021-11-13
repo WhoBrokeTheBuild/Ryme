@@ -33,7 +33,7 @@ struct RYME_API Version
     ///
     int Patch;
 
-    static void ScriptInit(py::module m);
+    static void ScriptInit(py::module);
 
     ///
     /// Construct a Version from three components

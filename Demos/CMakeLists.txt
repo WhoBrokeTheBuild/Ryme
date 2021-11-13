@@ -56,6 +56,8 @@ MACRO(DEFINE_DEMO _target)
 
     FILE(RELATIVE_PATH _executable ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${_target}${_ext})
 
+    LIST(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
+
     EXECUTE_PROCESS(
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_SOURCE_DIR}/Scripts/generate-launch-targets.py
@@ -70,10 +72,12 @@ MACRO(DEFINE_DEMO _target)
 
 ENDMACRO()
 
+LIST(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
+
 FILE(GLOB _demo_list ${CMAKE_CURRENT_SOURCE_DIR}/*)
 
 FOREACH(_demo ${_demo_list})
-    IF(IS_DIRECTORY ${_demo})
+    IF(EXISTS "${_demo}/CMakeLists.txt")
         ADD_SUBDIRECTORY(${_demo})
     ENDIF()
 ENDFOREACH()

@@ -4,6 +4,7 @@
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
 #include <Ryme/Containers.hpp>
+#include <Ryme/Script.hpp>
 
 #include <fmt/format.h>
 
@@ -16,6 +17,8 @@ public:
     static const char Separator = RYME_PATH_SEPARATOR;
 
     static const char ListSeparator = RYME_PATH_LIST_SEPARATOR;
+
+    static void ScriptInit(py::module);
 
     static List<Path> ParsePathList(const String& str);
 

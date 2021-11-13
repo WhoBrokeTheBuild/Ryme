@@ -10,13 +10,13 @@ PYBIND11_EMBEDDED_MODULE(ryme, m) {
 
         return fmt::format(
             "{}:{}",
-            Path(pyFilename.cast<std::string_view>()).GetFilename(),
+            Path(pyFilename.cast<StringView>()).GetFilename(),
             py::str(pyFrame.attr("f_lineno"))
         );
     };
 
     Version::ScriptInit(m);
-    // Path::ScriptInit(m);
+    Path::ScriptInit(m);
     Graphics::ScriptInit(m);
 
     // m.def("Init", Init);
@@ -29,8 +29,18 @@ PYBIND11_EMBEDDED_MODULE(ryme, m) {
     m.def("GetApplicationVersion", GetApplicationVersion);
 
     m.def("Log", 
-        [&](py::str message) {
-            ryme::LogMessage(pyRymeAnchor(), py::str(message).cast<std::string_view>());
+        [&](py::args args) {
+            if (args.size() == 1) {
+                ryme::LogMessage(pyRymeAnchor(), py::str(args[0]).cast<StringView>());
+            }
+            else {
+                String message;
+                for (const auto& arg : args) {
+                    message += py::str(arg).cast<StringView>();
+                    message += ' ';
+                }
+                ryme::LogMessage(pyRymeAnchor(), message);
+            }
         },
         py::doc("Log a message with the tag file:line"));
 }
