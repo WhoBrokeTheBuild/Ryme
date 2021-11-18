@@ -23,17 +23,17 @@ void Version::ScriptInit(py::module m)
 
         .def(py::self == py::self)
         .def(py::self != py::self)
-        .def(py::self < py::self)
-        .def(py::self <= py::self)
         .def(py::self > py::self)
         .def(py::self >= py::self)
+        .def(py::self < py::self)
+        .def(py::self <= py::self)
 
         .def("__str__", &Version::ToString)
 
         .def("__repr__", 
             [](const Version& v) {
                 return fmt::format(
-                    "ryme::Version({}, {}, {})",
+                    "ryme.Version({}, {}, {})",
                     v.Major,
                     v.Minor,
                     v.Patch

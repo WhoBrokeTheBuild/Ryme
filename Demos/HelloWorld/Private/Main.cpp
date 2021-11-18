@@ -1,7 +1,5 @@
 #include <Ryme/Ryme.hpp>
 
-#include <Ryme/World.hpp>
-
 using namespace ryme;
 
 int main(int argc, char ** argv)

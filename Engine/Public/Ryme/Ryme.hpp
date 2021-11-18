@@ -3,7 +3,6 @@
 
 #include <Ryme/Config.hpp>
 #include <Ryme/Containers.hpp>
-#include <Ryme/Entity.hpp>
 #include <Ryme/Exception.hpp>
 #include <Ryme/Graphics.hpp>
 #include <Ryme/Log.hpp>
@@ -13,7 +12,6 @@
 #include <Ryme/String.hpp>
 #include <Ryme/Transform.hpp>
 #include <Ryme/Version.hpp>
-#include <Ryme/World.hpp>
 
 namespace ryme {
 

@@ -73,7 +73,7 @@ void Path::ScriptInit(py::module m)
         .def("__repr__", 
             [](const Path& p) {
                 return fmt::format(
-                    "ryme::Path('{}')",
+                    "ryme.Path('{}')",
                     p.ToString()
                 );
             });
