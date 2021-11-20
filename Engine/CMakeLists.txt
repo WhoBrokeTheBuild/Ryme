@@ -10,8 +10,8 @@ FILE(
     _source
     "Public/*.h"
     "Public/*.hpp"
-    "Private/*.c"
-    "Private/*.cpp"
+    "Private/*.h"
+    "Private/*.hpp"
     "Private/*.c"
     "Private/*.cpp"
 )

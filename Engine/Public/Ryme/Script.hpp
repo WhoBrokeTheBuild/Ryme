@@ -2,7 +2,9 @@
 #define RYME_SCRIPT_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Log.hpp>
+#include <Ryme/String.hpp>
+
+#include <fmt/format.h>
 
 #include <pybind11/embed.h>
 namespace py = pybind11;

@@ -4,9 +4,11 @@
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
 #include <Ryme/Containers.hpp>
-#include <Ryme/Script.hpp>
 
 #include <fmt/format.h>
+
+#include <pybind11/embed.h>
+namespace py = pybind11;
 
 namespace ryme {
 

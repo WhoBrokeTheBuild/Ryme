@@ -2,9 +2,11 @@
 #define RYME_GRAPHICS_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/String.hpp>
 #include <Ryme/Math.hpp>
-#include <Ryme/Script.hpp>
+#include <Ryme/String.hpp>
+
+#include <pybind11/embed.h>
+namespace py = pybind11;
 
 #include <SDL.h>
 

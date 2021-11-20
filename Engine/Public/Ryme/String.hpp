@@ -9,6 +9,7 @@
 namespace ryme {
 
 using String = std::string;
+
 using StringView = std::string_view;
 
 inline bool StringEqualCaseInsensitive(StringView a, StringView b)

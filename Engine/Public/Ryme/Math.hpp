@@ -9,31 +9,32 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
+#include <glm/gtc/type_ptr.hpp>
+
+#include <pybind11/embed.h>
+namespace py = pybind11;
+
 #include <limits>
 
 namespace ryme {
 
-using Quat = glm::quat;
+using Quat = glm::qua<float, glm::packed>;
 
-using Mat2 = glm::mat2;
-using Mat3 = glm::mat3;
-using Mat4 = glm::mat4;
+using Mat2 = glm::mat<2, 2, float, glm::packed>;
+using Mat3 = glm::mat<3, 3, float, glm::packed>;
+using Mat4 = glm::mat<4, 4, float, glm::packed>;
 
-using Vec2 = glm::vec2;
-using Vec3 = glm::vec3;
-using Vec4 = glm::vec4;
+using Vec2 = glm::vec<2, float, glm::packed>;
+using Vec3 = glm::vec<3, float, glm::packed>;
+using Vec4 = glm::vec<4, float, glm::packed>;
 
-using Vec2b = glm::bvec2;
-using Vec3b = glm::bvec3;
-using Vec4b = glm::bvec4;
+using Vec2i = glm::vec<2, int32_t, glm::packed>;
+using Vec3i = glm::vec<3, int32_t, glm::packed>;
+using Vec4i = glm::vec<4, int32_t, glm::packed>;
 
-using Vec2i = glm::ivec2;
-using Vec3i = glm::ivec3;
-using Vec4i = glm::ivec4;
-
-using Vec2u = glm::uvec2;
-using Vec3u = glm::uvec3;
-using Vec4u = glm::uvec4;
+using Vec2u = glm::vec<2, uint32_t, glm::packed>;
+using Vec3u = glm::vec<3, uint32_t, glm::packed>;
+using Vec4u = glm::vec<4, uint32_t, glm::packed>;
 
 template <typename T>
 constexpr float NormalizeInteger(T value)
@@ -45,6 +46,21 @@ constexpr float NormalizeInteger(T value)
     );
 }
 
+namespace Math {
+
+RYME_API
+void ScriptInit(py::module);
+
+} // namespace Math
+
 } // namespace ryme
+
+PYBIND11_MAKE_OPAQUE(ryme::Vec2)
+PYBIND11_MAKE_OPAQUE(ryme::Vec3)
+PYBIND11_MAKE_OPAQUE(ryme::Vec4)
+
+PYBIND11_MAKE_OPAQUE(ryme::Mat2)
+PYBIND11_MAKE_OPAQUE(ryme::Mat3)
+PYBIND11_MAKE_OPAQUE(ryme::Mat4)
 
 #endif // RYME_MATH_HPP

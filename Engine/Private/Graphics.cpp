@@ -799,7 +799,7 @@ void initSwapChain()
         surfaceCapabilities.maxImageCount
     );
 
-    Log(RYME_ANCHOR, "Vulakn Swap Chain Image Count: {}", imageCount);
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Image Count: {}", imageCount);
 
     VkSwapchainKHR oldSwapChain = _vkSwapChain;
 

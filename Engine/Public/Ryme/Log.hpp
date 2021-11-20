@@ -3,11 +3,12 @@
 
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
+#include <Ryme/Path.hpp>
 
 #include <chrono>
 #include <utility>
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <fmt/chrono.h>
 #include <fmt/os.h>
