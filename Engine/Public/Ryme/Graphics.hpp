@@ -34,6 +34,18 @@ void Init(String windowTitle, Vec2i windowSize);
 RYME_API
 void Term();
 
+RYME_API
+void SetWindowTitle(String windowTitle);
+
+RYME_API
+String GetWindowTitle();
+
+RYME_API
+void SetWindowSize(Vec2i windowSize);
+
+RYME_API
+Vec2i GetWindowSize();
+
 } // namespace Graphics
 
 } // namespace ryme

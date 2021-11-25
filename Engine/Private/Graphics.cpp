@@ -16,15 +16,25 @@ namespace ryme {
 
 namespace Graphics {
 
+// Window
+
 SDL_Window * _sdlWindow = nullptr;
 
-List<const char *> _vkRequiredLayerNameList;
+Vec2i _windowSize;
+
+String _windowTitle;
+
+// Vulkan Instance
 
 VkInstance _vkInstance = VK_NULL_HANDLE;
 
+VkDebugUtilsMessengerEXT _vkDebugMessenger = VK_NULL_HANDLE;
+
+// Vulkan Surface
+
 VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
 
-VkDebugUtilsMessengerEXT _vkDebugMessenger = VK_NULL_HANDLE;
+// Vulkan Physical Device
 
 VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
 
@@ -32,9 +42,7 @@ VkPhysicalDeviceFeatures _vkPhysicalDeviceFeatures;
 
 VkPhysicalDevice _vkPhysicalDevice = VK_NULL_HANDLE;
 
-VkDevice _vkDevice = VK_NULL_HANDLE;
-
-Map<String, VkExtensionProperties> _vkAvailableDeviceExtensionMap;
+// Vulkan Queues
 
 uint32_t _vkGraphicsQueueFamilyIndex;
 
@@ -44,21 +52,19 @@ VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
 
 VkQueue _vkPresentQueue = VK_NULL_HANDLE;
 
+// Vulkan Logical Device
+
+VkDevice _vkDevice = VK_NULL_HANDLE;
+
+// Vulkan Memory Allocator
+
 VmaAllocator _vmaAllocator = VK_NULL_HANDLE;
 
-List<VkSemaphore> _vkImageAvailableSemaphoreList;
-
-List<VkSemaphore> _vkRenderingFinishedSemaphoreList;
-
-List<VkFence> _vkInFlightFenceList;
-
-List<VkFence> _vkImageInFlightList;
-
-uint32_t _backbufferCount = 2;
+// Swap Chain
 
 VkExtent2D _vkSwapChainExtent;
 
-Vec2i _windowSize;
+uint32_t _backbufferCount = 2;
 
 VkSwapchainKHR _vkSwapChain = VK_NULL_HANDLE;
 
@@ -68,6 +74,8 @@ List<VkImage> _vkSwapChainImageList;
 
 List<VkImageView> _vkSwapChainImageViewList;
 
+// Depth Buffer
+
 VkFormat _vkDepthImageFormat;
 
 VkImage _vkDepthImage = VK_NULL_HANDLE;
@@ -76,23 +84,26 @@ VmaAllocation _vmaDepthImageAllocation = VK_NULL_HANDLE;
 
 VkImageView _vkDepthImageView = VK_NULL_HANDLE;
 
+// Render Pass
+
 VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
+
+// Descriptor Pool
 
 VkDescriptorPool _vkDescriptorPool = VK_NULL_HANDLE;
 
 List<VkDescriptorSetLayout> _vkDescriptorSetLayoutList;
 
-void initWindow(String windowTitle);
-void termWindow();
-void initInstance();
-void termInstance();
-void initSurface();
-void termSurface();
-void findPhysicalDevice();
-void initDevice();
-void termDevice();
-void initAllocator();
-void termAllocator();
+// Sync Objects
+
+List<VkSemaphore> _vkImageAvailableSemaphoreList;
+
+List<VkSemaphore> _vkRenderingFinishedSemaphoreList;
+
+List<VkFence> _vkInFlightFenceList;
+
+List<VkFence> _vkImageInFlightList;
+
 void initSwapChain();
 void termSwapChain();
 void initSyncObjects();
@@ -163,30 +174,15 @@ RYME_API
 void Init(String windowTitle, Vec2i windowSize)
 {
     _windowSize = windowSize;
+    _windowTitle = windowTitle;
     
-    initWindow(windowTitle);
-    initInstance();
-    initSurface();
-    initDevice();
-    initAllocator();
-    initSwapChain();
-    initSyncObjects();
-}
-
-RYME_API
-void Term()
-{
-    termSyncObjects();
-    termSwapChain();
-    termAllocator();
-    termDevice();
-    termSurface();
-    termInstance();
-    termWindow();
-}
-
-void initWindow(String windowTitle)
-{
+    VkResult vkResult;
+    SDL_bool sdlResult;
+    
+    ///
+    /// Window
+    ///
+    
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
         throw Exception("SDL_Init failed, {}", SDL_GetError());
     }
@@ -199,7 +195,7 @@ void initWindow(String windowTitle)
         sdlVersion.patch);
     
     _sdlWindow = SDL_CreateWindow(
-        windowTitle.c_str(),
+        _windowTitle.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         _windowSize.x,
@@ -210,24 +206,11 @@ void initWindow(String windowTitle)
     if (!_sdlWindow) {
         throw Exception("SDL_CreateWindow failed, {}", SDL_GetError());
     }
-}
 
-void termWindow()
-{
-    if (_sdlWindow) {
-        SDL_DestroyWindow(_sdlWindow);
-        _sdlWindow = nullptr;
-    }
+    ///
+    /// Vulkan Instance Layers
+    ///
 
-    SDL_Quit();
-}
-
-void initInstance()
-{
-    VkResult vkResult;
-    SDL_bool sdlResult;
-
-    // Layers
     uint32_t availableLayerCount = 0;
     vkEnumerateInstanceLayerProperties(&availableLayerCount, nullptr);
 
@@ -236,84 +219,121 @@ void initInstance()
     }
 
     List<VkLayerProperties> availableLayerList(availableLayerCount);
-    vkResult = vkEnumerateInstanceLayerProperties(&availableLayerCount, availableLayerList.data());
+    vkResult = vkEnumerateInstanceLayerProperties(
+        &availableLayerCount,
+        availableLayerList.data()
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkEnumerateInstanceLayerProperties() failed");
     }
-
-    Map<String, VkLayerProperties> _availableLayerMap;
-    Log(RYME_ANCHOR, "Available Vulkan Layers:");
+    
+    Map<String, VkLayerProperties> availableLayerMap;
     for (const auto& layer : availableLayerList) {
-        Log(RYME_ANCHOR, "\t{}: {}", layer.layerName, layer.description);
-        _availableLayerMap.emplace(layer.layerName, layer);
+        availableLayerMap.emplace(layer.layerName, layer);
     }
 
-    _vkRequiredLayerNameList.clear();
+    List<const char *> requiredLayerNameList = {
 
+    };
+    
     #if defined(RYME_BUILD_DEBUG)
 
-        if (_availableLayerMap.contains(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
-            _vkRequiredLayerNameList.push_back(VK_LAYER_KHRONOS_VALIDATION_NAME);
+        if (availableLayerMap.contains(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
+            requiredLayerNameList.push_back(VK_LAYER_KHRONOS_VALIDATION_NAME);
         }
 
     #endif
+    
+    Log(RYME_ANCHOR, "Available Vulkan Layers:");
+    for (const auto& layer : availableLayerList) {
+        Log(RYME_ANCHOR, "\t{}: {}", layer.layerName, layer.description);
+    }
 
     Log(RYME_ANCHOR, "Required Vulkan Device Layers:");
-    for (const auto& layer : _vkRequiredLayerNameList) {
+    for (const auto& layer : requiredLayerNameList) {
         Log(RYME_ANCHOR, "\t{}", layer);
     }
 
-    // Extensions
-    uint32_t availableExtensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, nullptr);
+    ///
+    /// Vulkan Instance Extensions
+    ///
+    
+    uint32_t availableInstanceExtensionCount = 0;
+    vkEnumerateInstanceExtensionProperties(
+        nullptr,
+        &availableInstanceExtensionCount,
+        nullptr
+    );
 
-    if (availableExtensionCount == 0) {
+    if (availableInstanceExtensionCount == 0) {
         throw Exception("vkEnumerateInstanceExtensionProperties() failed, no extensions available");
     }
 
-    List<VkExtensionProperties> availableExtensionList(availableExtensionCount);
-    vkResult = vkEnumerateInstanceExtensionProperties(nullptr, &availableExtensionCount, availableExtensionList.data());
+    List<VkExtensionProperties> availableInstanceExtensionList(availableInstanceExtensionCount);
+    vkResult = vkEnumerateInstanceExtensionProperties(
+        nullptr,
+        &availableInstanceExtensionCount,
+        availableInstanceExtensionList.data()
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkEnumerateInstanceExtensionProperties() failed");
     }
 
-    Map<String, VkExtensionProperties> availableExtensionMap;
-    Log(RYME_ANCHOR, "Available Vulkan Instance Extensions:");
-    for (const auto& extension : availableExtensionList) {
-        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
-        availableExtensionMap.emplace(extension.extensionName, extension);
+    Map<String, VkExtensionProperties> availableInstanceExtensionMap;
+    for (const auto& extension : availableInstanceExtensionList) {
+        availableInstanceExtensionMap.emplace(extension.extensionName, extension);
     }
 
-    uint32_t requiredExtensionCount = 0;
-    SDL_Vulkan_GetInstanceExtensions(_sdlWindow, &requiredExtensionCount, nullptr);
+    uint32_t requiredInstanceExtensionCount = 0;
+    SDL_Vulkan_GetInstanceExtensions(
+        _sdlWindow,
+        &requiredInstanceExtensionCount,
+        nullptr
+    );
 
-    List<const char *> requiredExtensionList(requiredExtensionCount);
-    sdlResult = SDL_Vulkan_GetInstanceExtensions(_sdlWindow, &requiredExtensionCount, requiredExtensionList.data());
+    List<const char *> requiredInstanceExtensionList(requiredInstanceExtensionCount);
+    sdlResult = SDL_Vulkan_GetInstanceExtensions(
+        _sdlWindow,
+        &requiredInstanceExtensionCount,
+        requiredInstanceExtensionList.data()
+    );
+
     if (!sdlResult) {
         throw Exception("SDL_Vulkan_GetInstanceExtensions() failed, {}", SDL_GetError());
     }
 
     #if defined(RYME_BUILD_DEBUG)
 
-        if (availableExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-            requiredExtensionList.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        if (availableInstanceExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+            requiredInstanceExtensionList.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
     #endif
 
+    Log(RYME_ANCHOR, "Available Vulkan Instance Extensions:");
+    for (const auto& extension : availableInstanceExtensionList) {
+        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
+    }
+
     Log(RYME_ANCHOR, "Required Vulkan Instance Extensions:");
-    for (const auto& extension : requiredExtensionList) {
+    for (const auto& extension : requiredInstanceExtensionList) {
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-    // Instance
+    ///
+    /// Vulkan Instance
+    ///
+    
     const auto& engineVersion = GetVersion();
+    const auto& applicationName = GetApplicationName();
     const auto& applicationVersion = GetApplicationVersion();
 
     VkApplicationInfo applicationInfo = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = nullptr,
-        .pApplicationName = GetApplicationName().c_str(),
+        .pApplicationName = applicationName.c_str(),
         .applicationVersion = VK_MAKE_VERSION(
             applicationVersion.Major,
             applicationVersion.Minor,
@@ -333,87 +353,93 @@ void initInstance()
         .pNext = nullptr,
         .flags = 0,
         .pApplicationInfo = &applicationInfo,
-        .enabledLayerCount = static_cast<uint32_t>(_vkRequiredLayerNameList.size()),
-        .ppEnabledLayerNames = _vkRequiredLayerNameList.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(requiredExtensionList.size()),
-        .ppEnabledExtensionNames = requiredExtensionList.data(),
+        .enabledLayerCount = static_cast<uint32_t>(requiredLayerNameList.size()),
+        .ppEnabledLayerNames = requiredLayerNameList.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(requiredInstanceExtensionList.size()),
+        .ppEnabledExtensionNames = requiredInstanceExtensionList.data(),
     };
 
-    VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo;
+    #if defined(RYME_BUILD_DEBUG)
 
-    if (_availableLayerMap.contains(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
-        VkDebugUtilsMessageSeverityFlagsEXT messageSeverity =
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+        VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo;
 
-        VkDebugUtilsMessageTypeFlagsEXT messageType =
-            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
-            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
-            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        if (availableLayerMap.contains(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
+            VkDebugUtilsMessageSeverityFlagsEXT messageSeverity =
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
 
-        debugUtilsMessengerCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-            .pNext = nullptr,
-            .flags = 0,
-            .messageSeverity = messageSeverity,
-            .messageType = messageType,
-            .pfnUserCallback = _VulkanDebugMessageCallback,
-            .pUserData = nullptr,
-        };
-        
-        instanceCreateInfo.pNext = &debugUtilsMessengerCreateInfo;
-    }
+            VkDebugUtilsMessageTypeFlagsEXT messageType =
+                VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
+                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
+                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
-    vkResult = vkCreateInstance(&instanceCreateInfo, nullptr, &_vkInstance);
+            debugUtilsMessengerCreateInfo = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                .pNext = nullptr,
+                .flags = 0,
+                .messageSeverity = messageSeverity,
+                .messageType = messageType,
+                .pfnUserCallback = _VulkanDebugMessageCallback,
+                .pUserData = nullptr,
+            };
+            
+            instanceCreateInfo.pNext = &debugUtilsMessengerCreateInfo;
+        }
+
+    #endif
+
+    vkResult = vkCreateInstance(
+        &instanceCreateInfo,
+        nullptr,
+        &_vkInstance
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkCreateInstance() failed");
     }
 
     Log(RYME_ANCHOR, "Vulkan Version: {}.{}",
         VK_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
-        VK_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE));
-}
+        VK_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE)
+    );
 
-void termInstance()
-{
-    if (!_vkInstance) {
-        vkDestroyInstance(_vkInstance, nullptr);
-        _vkInstance = VK_NULL_HANDLE;
-    }
-}
-
-void initSurface()
-{
-    SDL_bool sdlResult;
-
-    sdlResult = SDL_Vulkan_CreateSurface(_sdlWindow, _vkInstance, &_vkSurface);
+    ///
+    /// Vulkan Surface
+    ///
+    
+    sdlResult = SDL_Vulkan_CreateSurface(
+        _sdlWindow,
+        _vkInstance,
+        &_vkSurface
+    );
+    
     if (!sdlResult) {
         throw Exception("SDL_Vulkan_CreateSurface() failed, {}", SDL_GetError());
     }
-}
 
-void termSurface()
-{
-    if (_vkSurface) {
-        vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
-        _vkSurface = nullptr;
-    }
-}
-
-void findPhysicalDevice()
-{
-    VkResult vkResult;
+    ///
+    /// Physical Device
+    ///
 
     uint32_t physicalDeviceCount = 0;
-    vkEnumeratePhysicalDevices(_vkInstance, &physicalDeviceCount, nullptr);
+    vkEnumeratePhysicalDevices(
+        _vkInstance,
+        &physicalDeviceCount,
+        nullptr
+    );
 
     if (physicalDeviceCount == 0) {
         throw Exception("vkEnumeratePhysicalDevices() failed, no devices found");
     }
 
     List<VkPhysicalDevice> physicalDeviceList(physicalDeviceCount);
-    vkResult = vkEnumeratePhysicalDevices(_vkInstance, &physicalDeviceCount, physicalDeviceList.data());
+    vkResult = vkEnumeratePhysicalDevices(
+        _vkInstance,
+        &physicalDeviceCount,
+        physicalDeviceList.data()
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkEnumeratePhysicalDevices() failed");
     }
@@ -442,42 +468,54 @@ void findPhysicalDevice()
     Log(RYME_ANCHOR, "Physical Vulkan Version: {}.{}.{}",
         VK_VERSION_MAJOR(_vkPhysicalDeviceProperties.apiVersion),
         VK_VERSION_MINOR(_vkPhysicalDeviceProperties.apiVersion),
-        VK_VERSION_PATCH(_vkPhysicalDeviceProperties.apiVersion));
+        VK_VERSION_PATCH(_vkPhysicalDeviceProperties.apiVersion)
+    );
 
     uint32_t availableExtensionCount = 0;
-    vkEnumerateDeviceExtensionProperties(_vkPhysicalDevice, nullptr, &availableExtensionCount, nullptr);
+    vkEnumerateDeviceExtensionProperties(
+        _vkPhysicalDevice,
+        nullptr,
+        &availableExtensionCount,
+        nullptr
+    );
 
     if (availableExtensionCount == 0) {
         throw Exception("vkEnumerateDeviceExtensionProperties() failed, no extensions available");
     }
 
     List<VkExtensionProperties> availableExtensions(availableExtensionCount);
-    vkResult = vkEnumerateDeviceExtensionProperties(_vkPhysicalDevice, nullptr, &availableExtensionCount, availableExtensions.data());
+    vkResult = vkEnumerateDeviceExtensionProperties(
+        _vkPhysicalDevice,
+        nullptr,
+        &availableExtensionCount,
+        availableExtensions.data()
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkEnumerateDeviceExtensionProperties() failed");
     }
 
-    Log(RYME_ANCHOR, "Available Vulkan Device Extensions:");
-    for (const auto& extension : availableExtensions) {
-        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
-        _vkAvailableDeviceExtensionMap.emplace(extension.extensionName, extension);
-    }
-}
-
-void initDevice()
-{
-    VkResult vkResult;
-
-    findPhysicalDevice();
+    ///
+    /// Vulkan Queues
+    ///
 
     uint32_t queueFamilyCount;
-    vkGetPhysicalDeviceQueueFamilyProperties(_vkPhysicalDevice, &queueFamilyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        _vkPhysicalDevice,
+        &queueFamilyCount,
+        nullptr
+    );
+
     if (queueFamilyCount == 0) {
         throw Exception("vkGetPhysicalDeviceQueueFamilyProperties(), no queues found");
     }
 
     List<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(_vkPhysicalDevice, &queueFamilyCount, queueFamilyProperties.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        _vkPhysicalDevice,
+        &queueFamilyCount,
+        queueFamilyProperties.data()
+    );
 
     _vkGraphicsQueueFamilyIndex = UINT32_MAX;
     _vkPresentQueueFamilyIndex = UINT32_MAX;
@@ -559,92 +597,98 @@ void initDevice()
             }
         );
     }
+    
+    ///
+    /// Vulkan Logical Device
+    ///
 
     VkPhysicalDeviceFeatures requiredDeviceFeatures = {
-        // TODO
+
     };
 
-    uint32_t availableExtensionCount = 0;
+    uint32_t availableDeviceExtensionCount = 0;
     vkEnumerateDeviceExtensionProperties(
         _vkPhysicalDevice,
         nullptr,
-        &availableExtensionCount,
+        &availableDeviceExtensionCount,
         nullptr
     );
 
-    if (availableExtensionCount == 0) {
+    if (availableDeviceExtensionCount == 0) {
         throw Exception("vkEnumerateDeviceExtensionProperties() failed, no extensions found");
     }
 
-    List<VkExtensionProperties> availableExtensionList(availableExtensionCount);
+    List<VkExtensionProperties> availableDeviceExtensionList(availableDeviceExtensionCount);
     vkResult = vkEnumerateDeviceExtensionProperties(
         _vkPhysicalDevice,
         nullptr,
-        &availableExtensionCount,
-        availableExtensionList.data()
+        &availableDeviceExtensionCount,
+        availableDeviceExtensionList.data()
     );
 
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkEnumerateDeviceExtensionProperties(), failed");
     }
 
-    Log(RYME_ANCHOR, "Available Vulkan Device Extensions:");
-    for (const auto& extension : availableExtensionList) {
-        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
-        _vkAvailableDeviceExtensionMap.emplace(extension.extensionName, extension);
+    Map<String, VkExtensionProperties> availableDeviceExtensionMap;
+    for (const auto& extension : availableDeviceExtensionList) {
+        availableDeviceExtensionMap.emplace(extension.extensionName, extension);
     }
 
-    List<const char *> requiredExtensionNameList = { };
+    List<const char *> requiredDeviceExtensionNameList = {
+
+    };
     
-    if (_vkAvailableDeviceExtensionMap.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
-        requiredExtensionNameList.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+    if (availableDeviceExtensionMap.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+        requiredDeviceExtensionNameList.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
     }
 
-    requiredExtensionNameList.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    requiredDeviceExtensionNameList.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    
+    Log(RYME_ANCHOR, "Available Vulkan Device Extensions:");
+    for (const auto& extension : availableDeviceExtensionList) {
+        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
+    }
 
     Log(RYME_ANCHOR, "Required Vulkan Device Extensions:");
-    for (auto extension : requiredExtensionNameList) {
+    for (auto extension : requiredDeviceExtensionNameList) {
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-    // _vkRequiredLayerNameList
     VkDeviceCreateInfo deviceCreateInfo = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pNext = nullptr,
         .flags = 0,
         .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfoList.size()),
         .pQueueCreateInfos = queueCreateInfoList.data(),
-        .enabledLayerCount = static_cast<uint32_t>(_vkRequiredLayerNameList.size()),
-        .ppEnabledLayerNames = _vkRequiredLayerNameList.data(),
-        .enabledExtensionCount = static_cast<uint32_t>(requiredExtensionNameList.size()),
-        .ppEnabledExtensionNames = requiredExtensionNameList.data(),
+        .enabledLayerCount = static_cast<uint32_t>(requiredLayerNameList.size()),
+        .ppEnabledLayerNames = requiredLayerNameList.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensionNameList.size()),
+        .ppEnabledExtensionNames = requiredDeviceExtensionNameList.data(),
         .pEnabledFeatures = &requiredDeviceFeatures,
     };
 
-    vkResult = vkCreateDevice(_vkPhysicalDevice, &deviceCreateInfo, nullptr, &_vkDevice);
+    vkResult = vkCreateDevice(
+        _vkPhysicalDevice,
+        &deviceCreateInfo,
+        nullptr,
+        &_vkDevice
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vkCreateDeivce() failed");
     }
 
     vkGetDeviceQueue(_vkDevice, _vkGraphicsQueueFamilyIndex, 0, &_vkGraphicsQueue);
-    vkGetDeviceQueue(_vkDevice, _vkPresentQueueFamilyIndex, 0, & _vkPresentQueue);
-}
+    vkGetDeviceQueue(_vkDevice, _vkPresentQueueFamilyIndex, 0, &_vkPresentQueue);
 
-void termDevice()
-{
-    if (_vkDevice) {
-        vkDestroyDevice(_vkDevice, nullptr);
-        _vkDevice = nullptr;
-    }
-}
-
-void initAllocator()
-{
-    VkResult vkResult;
-
+    ///
+    /// Vulkan Memory Allocator
+    ///
+    
     VmaAllocatorCreateFlags allocatorCreateFlags = 0;
 
-    if (_vkAvailableDeviceExtensionMap.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+    if (availableDeviceExtensionMap.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
         allocatorCreateFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
     }
 
@@ -659,18 +703,98 @@ void initAllocator()
         .vulkanApiVersion = VK_API_VERSION_1_1,
     };
 
-    vkResult = vmaCreateAllocator(&allocatorCreateInfo, &_vmaAllocator);
+    vkResult = vmaCreateAllocator(
+        &allocatorCreateInfo,
+        &_vmaAllocator
+    );
+
     if (vkResult != VK_SUCCESS) {
         throw Exception("vmaCreateAllocator() failed");
     }
 }
 
-void termAllocator()
+RYME_API
+void Term()
 {
+    termSyncObjects();
+    termSwapChain();
+
+    ///
+    /// Vulkan Memory Allocator
+    ///
+
     if (_vmaAllocator) {
         vmaDestroyAllocator(_vmaAllocator);
         _vmaAllocator = nullptr;
     }
+
+    ///
+    /// Vulkan Logical Device
+    ///
+    
+    if (_vkDevice) {
+        vkDestroyDevice(_vkDevice, nullptr);
+        _vkDevice = nullptr;
+    }
+
+    ///
+    /// Vulkan Surface
+    ///
+    
+    if (_vkSurface) {
+        vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
+        _vkSurface = nullptr;
+    }
+
+    ///
+    /// Vulkan Instance
+    ///
+    
+    if (!_vkInstance) {
+        vkDestroyInstance(_vkInstance, nullptr);
+        _vkInstance = VK_NULL_HANDLE;
+    }
+
+    ///
+    /// Window
+    ///
+    
+    if (_sdlWindow) {
+        SDL_DestroyWindow(_sdlWindow);
+        _sdlWindow = nullptr;
+    }
+
+    SDL_Quit();
+}
+
+RYME_API
+void SetWindowTitle(String windowTitle)
+{
+    assert(_sdlWindow);
+    
+    _windowTitle = windowTitle;
+    SDL_SetWindowTitle(_sdlWindow, _windowTitle.c_str());
+}
+
+RYME_API
+String GetWindowTitle()
+{
+    return _windowTitle;
+}
+
+RYME_API
+void SetWindowSize(Vec2i windowSize)
+{
+    assert(_sdlWindow);
+    
+    _windowSize = windowSize;
+    SDL_SetWindowSize(_sdlWindow, _windowSize.x, _windowSize.y);
+}
+
+RYME_API
+Vec2i GetWindowSize()
+{
+    return _windowSize;
 }
 
 void initSwapChain()
@@ -711,7 +835,8 @@ void initSwapChain()
 
         Log(RYME_ANCHOR, "\t{} {}",
             VkFormatToString(format.format),
-            VkColorSpaceToString(format.colorSpace));
+            VkColorSpaceToString(format.colorSpace)
+        );
     }
 
     Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {}",
@@ -893,7 +1018,13 @@ void initSwapChain()
             },
         };
 
-        vkResult = vkCreateImageView(_vkDevice, &imageViewCreateInfo, nullptr, &_vkSwapChainImageViewList[i]);
+        vkResult = vkCreateImageView(
+            _vkDevice,
+            &imageViewCreateInfo,
+            nullptr,
+            &_vkSwapChainImageViewList[i]
+        );
+        
         if (vkResult != VK_SUCCESS) {
             throw Exception("vkCreateImageView() failed for image view #{}", i);
         }
