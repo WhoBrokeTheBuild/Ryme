@@ -79,7 +79,7 @@ void SetRunning(bool isRunning)
 }
 
 RYME_API
-inline Version GetVersion()
+Version GetVersion()
 {
     return Version(
         RYME_VERSION_MAJOR,
@@ -89,13 +89,13 @@ inline Version GetVersion()
 }
 
 RYME_API
-inline String GetApplicationName()
+String GetApplicationName()
 {
     return _applicationName;
 }
 
 RYME_API
-inline Version GetApplicationVersion()
+Version GetApplicationVersion()
 {
     return _applicationVersion;
 }

@@ -12,7 +12,7 @@ template <glm::length_t L, typename T, glm::qualifier Q = glm::packed>
 void BindMatrix(py::module m, const char * name)
 {
     using Matrix = glm::mat<L, L, T, Q>;
-    using Vector = Matrix::col_type;
+    using Vector = typename Matrix::col_type;
 
     auto c = py::class_<Matrix>(m, name, py::buffer_protocol())
     

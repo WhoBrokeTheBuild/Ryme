@@ -43,13 +43,13 @@ RYME_API
 void SetRunning(bool isRunning);
 
 RYME_API
-inline Version GetVersion();
+Version GetVersion();
 
 RYME_API
-inline String GetApplicationName();
+String GetApplicationName();
 
 RYME_API
-inline Version GetApplicationVersion();
+Version GetApplicationVersion();
 
 } // namespace ryme
 
