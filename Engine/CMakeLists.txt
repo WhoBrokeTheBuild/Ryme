@@ -7,7 +7,7 @@ SET(_target RymeEngine)
 
 FILE(
     GLOB_RECURSE
-    _source
+    _source_list
     "Public/*.h"
     "Public/*.hpp"
     "Private/*.h"
@@ -18,14 +18,49 @@ FILE(
 
 FILE(
     GLOB_RECURSE
-    _source_in
+    _source_input_list
     "Public/*.in"
     "Private/*.in"
 )
 
 INCLUDE(ConfigureFileList)
 
-CONFIGURE_FILE_LIST("${_source_in}" _source_out)
+CONFIGURE_FILE_LIST("${_source_input_list}" _source_output_list)
+
+###
+### Asset Processing
+###
+
+FILE(GLOB_RECURSE
+    _asset_list
+    "Assets/*"
+)
+
+# Stop VS from trying to "build" our .obj model files
+SET_SOURCE_FILES_PROPERTIES(
+    ${_asset_list} 
+    PROPERTIES
+        HEADER_FILE_ONLY TRUE
+)
+
+LIST(PREPEND RYME_ASSET_PATH
+    ${CMAKE_CURRENT_SOURCE_DIR}/Assets
+    ${CMAKE_CURRENT_BINARY_DIR}/Assets
+)
+
+###
+### Shader Processing
+###
+
+FILE(
+    GLOB_RECURSE
+    _shader_input_list
+    "Assets/Shaders/*.glsl"
+)
+
+INCLUDE(CompileShaderList)
+
+COMPILE_SHADER_LIST("${RYME_ASSET_PATH}" "${_shader_input_list}" _shader_output_list)
 
 ###
 ### Target Configuration
@@ -33,8 +68,10 @@ CONFIGURE_FILE_LIST("${_source_in}" _source_out)
 
 ADD_LIBRARY(
     ${_target} SHARED
-    ${_source}
-    ${_source_out}
+    ${_source_list}
+    ${_source_output_list}
+    ${_asset_list}
+    ${_shader_output_list}
 )
 
 TARGET_LINK_LIBRARIES(

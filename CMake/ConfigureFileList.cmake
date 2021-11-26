@@ -1,8 +1,8 @@
 # ConfigureFileList.cmake
 #
 # This will run CONFIGURE_FILE for each file in ${_input_list}, and store them in their 
-# relative location under the binary directory, with the last extension stripped. The resulting
-# filenames will be stored in ${_output_list}.
+# relative location under the binary directory, with the last extension stripped.
+# The resulting list of filenames will be stored in ${_output_list}.
 #
 # For example:
 #   ${CMAKE_CURRENT_SOURCE_DIR}/Source/Config.h.in

@@ -13,6 +13,41 @@ MACRO(DEFINE_DEMO _target)
         "Private/*.c"
         "Private/*.cpp"
     )
+    
+    ###
+    ### Asset Processing
+    ###
+
+    FILE(GLOB_RECURSE
+        _asset_list
+        "Assets/*"
+    )
+
+    # Stop VS from trying to "build" our .obj model files
+    SET_SOURCE_FILES_PROPERTIES(
+        ${_asset_list} 
+        PROPERTIES
+            HEADER_FILE_ONLY TRUE
+    )
+
+    LIST(PREPEND RYME_ASSET_PATH
+        ${CMAKE_CURRENT_SOURCE_DIR}/Assets
+        ${CMAKE_CURRENT_BINARY_DIR}/Assets
+    )
+
+    ###
+    ### Shader Processing
+    ###
+
+    FILE(
+        GLOB_RECURSE
+        _shader_input_list
+        "Assets/Shaders/*.glsl"
+    )
+
+    INCLUDE(CompileShaderList)
+
+    COMPILE_SHADER_LIST("${RYME_ASSET_PATH}" "${_shader_input_list}" _shader_output_list)
 
     ###
     ### Target Configuration
@@ -21,6 +56,8 @@ MACRO(DEFINE_DEMO _target)
     ADD_EXECUTABLE(
         ${_target}
         ${_source}
+        ${_asset_list}
+        ${_shader_output_list}
     )
 
     TARGET_LINK_LIBRARIES(
