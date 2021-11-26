@@ -14,9 +14,9 @@
 MACRO(COMPILE_SHADER_LIST _include_path _input_list _output_list)
     FOREACH(_input ${_input_list})
 
-        GET_FILENAME_COMPONENT(_ext ${_input} LAST_EXT)
+        GET_FILENAME_COMPONENT(_input_ext ${_input} LAST_EXT)
 
-        IF(_ext STREQUAL ".glsl")
+        IF(_input_ext STREQUAL ".glsl")
 
             # /path/to/Default.vert.glsl -> Default.vert 
             GET_FILENAME_COMPONENT(_input_name ${_input} NAME_WLE)

@@ -127,7 +127,7 @@ TARGET_COMPILE_OPTIONS(
 
         # Enable most warnings, disable unknown pragmas warning
         $<$<CXX_COMPILER_ID:GNU>:   -Wall -Wno-unknown-pragmas>
-        $<$<CXX_COMPILER_ID:Clang>: -Wall -Wno-unknown-pragmas -Wno-nullability-completeness>
+        $<$<CXX_COMPILER_ID:Clang>: -Wall -Wno-unknown-pragmas -Wno-nullability-completeness -Wno-self-assign-overloaded>
         $<$<CXX_COMPILER_ID:MSVC>:  /wd4068>
 )
 
