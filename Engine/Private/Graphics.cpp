@@ -212,16 +212,20 @@ void Init(String windowTitle, Vec2i windowSize)
 
     auto availableLayerList = vk::enumerateInstanceLayerProperties();
 
-    Map<String, vk::LayerProperties> availableLayerMap;
-    for (const auto& layer : availableLayerList) {
-        availableLayerMap.emplace(layer.layerName, layer);
-    }
+    auto hasLayer = [&](StringView name) {
+        for (const auto& layer : availableLayerList) {
+            if (layer.layerName == name) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     List<const char *> requiredLayerNameList = { };
     
     #if defined(RYME_BUILD_DEBUG)
 
-        if (availableLayerMap.contains(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
+        if (hasLayer(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
             requiredLayerNameList.push_back(VK_LAYER_KHRONOS_VALIDATION_NAME);
         }
 
@@ -243,17 +247,17 @@ void Init(String windowTitle, Vec2i windowSize)
 
     auto availableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
 
-    Map<String, vk::ExtensionProperties> availableInstanceExtensionMap;
-    for (const auto& extension : availableInstanceExtensionList) {
-        availableInstanceExtensionMap.emplace(extension.extensionName, extension);
-    }
+    auto hasInstanceExtension = [&](StringView name) {
+        for (const auto& extension : availableInstanceExtensionList) {
+            if (extension.extensionName == name) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     uint32_t requiredInstanceExtensionCount = 0;
-    SDL_Vulkan_GetInstanceExtensions(
-        _sdlWindow,
-        &requiredInstanceExtensionCount,
-        nullptr
-    );
+    SDL_Vulkan_GetInstanceExtensions(_sdlWindow, &requiredInstanceExtensionCount, nullptr);
 
     List<const char *> requiredInstanceExtensionList(requiredInstanceExtensionCount);
     sdlResult = SDL_Vulkan_GetInstanceExtensions(
@@ -268,7 +272,7 @@ void Init(String windowTitle, Vec2i windowSize)
 
     #if defined(RYME_BUILD_DEBUG)
 
-        if (availableInstanceExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+        if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
             requiredInstanceExtensionList.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
@@ -305,15 +309,15 @@ void Init(String windowTitle, Vec2i windowSize)
     instanceCreateInfo.setPEnabledLayerNames(requiredLayerNameList);
     instanceCreateInfo.setPEnabledExtensionNames(requiredInstanceExtensionList);
 
-    #if defined(RYME_BUILD_DEBUG)
+    #if defined(VK_EXT_debug_utils)
 
         vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo;
 
-        if (availableInstanceExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+        if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 
             debugUtilsMessengerCreateInfo.messageSeverity = 
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning,
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
                 vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo;
                 
             debugUtilsMessengerCreateInfo.messageType =
@@ -344,9 +348,9 @@ void Init(String windowTitle, Vec2i windowSize)
     /// Vulkan Debug Utils Messenger
     ///
     
-    #if defined(RYME_BUILD_DEBUG)
+    #if defined(VK_EXT_debug_utils)
 
-        if (availableInstanceExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+        if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
             _vkDebugUtilsMessenger = _vkInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo, nullptr, _vkDynamicDispatch);
         }
 
@@ -363,7 +367,7 @@ void Init(String windowTitle, Vec2i windowSize)
     }
 
     ///
-    /// Physical Device
+    /// Vulkan Physical Device
     ///
 
     for (const auto& physicalDevice : _vkInstance.enumeratePhysicalDevices()) {
@@ -476,18 +480,24 @@ void Init(String windowTitle, Vec2i windowSize)
 
     auto availableDeviceExtensionList = _vkPhysicalDevice.enumerateDeviceExtensionProperties();
 
-    Map<String, vk::ExtensionProperties> availableDeviceExtensionMap;
-    for (const auto& extension : availableDeviceExtensionList) {
-        availableDeviceExtensionMap.emplace(extension.extensionName, extension);
-    }
-
-    List<const char *> requiredDeviceExtensionNameList = {
-
+    auto hasDeviceExtension = [&](StringView name) {
+        for (const auto& extension : availableDeviceExtensionList) {
+            if (extension.extensionName == name) {
+                return true;
+            }
+        }
+        return false;
     };
+
+    List<const char *> requiredDeviceExtensionNameList = { };
     
-    if (availableDeviceExtensionMap.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
-        requiredDeviceExtensionNameList.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-    }
+    #if defined(VK_EXT_memory_budget)
+        
+        if (hasDeviceExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+            requiredDeviceExtensionNameList.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+        }
+
+    #endif
 
     requiredDeviceExtensionNameList.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     
@@ -517,9 +527,13 @@ void Init(String windowTitle, Vec2i windowSize)
     
     VmaAllocatorCreateFlags allocatorCreateFlags = 0;
 
-    if (availableDeviceExtensionMap.contains(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
-        allocatorCreateFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
-    }
+    #if defined(VK_EXT_memory_budget)
+        
+        if (hasDeviceExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
+            allocatorCreateFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+        }
+
+    #endif
 
     VmaAllocatorCreateInfo allocatorCreateInfo = {
         .flags = allocatorCreateFlags,
