@@ -2,8 +2,8 @@
 #define RYME_LOG_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/String.hpp>
 #include <Ryme/Path.hpp>
+#include <Ryme/String.hpp>
 
 #include <chrono>
 #include <utility>
@@ -57,6 +57,15 @@ template <typename... Args>
 inline void Log(StringView tag, StringView format, Args&&... args) {
     LogMessage(tag, fmt::vformat(format, fmt::make_format_args(std::forward<Args>(args)...)));
 }
+
+///
+/// Convert a byte count to a human readable number
+///
+/// 123456 would become 120.562 MiB
+///
+/// @param bytes The number of bytes
+///
+String FormatBytesHumanReadable(uint64_t bytes);
 
 } // namespace ryme
 

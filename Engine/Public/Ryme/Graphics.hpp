@@ -10,7 +10,6 @@ namespace py = pybind11;
 
 #include <SDL.h>
 
-#define VULKAN_HPP_NO_CONSTRUCTORS
 #include <vulkan/vulkan.hpp>
 
 RYME_DISABLE_WARNINGS()

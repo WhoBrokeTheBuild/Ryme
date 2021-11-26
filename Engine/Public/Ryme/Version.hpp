@@ -9,6 +9,8 @@
 #include <pybind11/embed.h>
 namespace py = pybind11;
 
+#include <vulkan/vulkan.hpp>
+
 #include <regex>
 #include <tuple>
 
@@ -115,6 +117,11 @@ struct RYME_API Version
     inline operator String() const
     {
         return ToString();
+    }
+
+    inline uint32_t ToVkVersion() const
+    {
+        return VK_MAKE_VERSION(Major, Minor, Patch);
     }
 
     ///

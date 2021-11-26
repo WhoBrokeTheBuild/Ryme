@@ -56,7 +56,7 @@ MACRO(COMPILE_SHADER_LIST _include_path _input_list _output_list)
                 DEPENDS ${_input}
                 COMMAND ${Vulkan_GLSLC_EXECUTABLE}
                     -fshader-stage=${_stage}
-                    --target-env=vulkan1.2
+                    --target-env=vulkan
                     ${_include_flags}
                     -MD -MF ${_output}.d
                     -o ${_output}

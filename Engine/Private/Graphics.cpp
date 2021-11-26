@@ -3,7 +3,6 @@
 
 #include <SDL_vulkan.h>
 
-
 RYME_DISABLE_WARNINGS()
 
     #define VMA_IMPLEMENTATION
@@ -27,19 +26,21 @@ String _windowTitle;
 
 // Vulkan Instance
 
+vk::DispatchLoaderDynamic _vkDynamicDispatch;
+
 vk::Instance _vkInstance;
 
-VkDebugUtilsMessengerEXT _vkDebugMessenger = VK_NULL_HANDLE;
+vk::DebugUtilsMessengerEXT _vkDebugUtilsMessenger;
 
 // Vulkan Surface
 
-VkSurfaceKHR _vkSurface = VK_NULL_HANDLE;
+VkSurfaceKHR _vkSurface;
 
 // Vulkan Physical Device
 
-VkPhysicalDeviceProperties _vkPhysicalDeviceProperties;
+vk::PhysicalDeviceProperties _vkPhysicalDeviceProperties;
 
-VkPhysicalDeviceFeatures _vkPhysicalDeviceFeatures;
+vk::PhysicalDeviceFeatures _vkPhysicalDeviceFeatures;
 
 vk::PhysicalDevice _vkPhysicalDevice;
 
@@ -49,13 +50,13 @@ uint32_t _vkGraphicsQueueFamilyIndex;
 
 uint32_t _vkPresentQueueFamilyIndex;
 
-VkQueue _vkGraphicsQueue = VK_NULL_HANDLE;
+vk::Queue _vkGraphicsQueue;
 
-VkQueue _vkPresentQueue = VK_NULL_HANDLE;
+vk::Queue _vkPresentQueue;
 
 // Vulkan Logical Device
 
-vk::Device _vkDevice = VK_NULL_HANDLE;
+vk::Device _vkDevice;
 
 // Vulkan Memory Allocator
 
@@ -117,11 +118,6 @@ void termDescriptorPool();
 void initDepthBuffer();
 void termDepthBuffer();
 
-String VkResultToString(VkResult vkResult);
-String VkFormatToString(VkFormat vkFormat);
-String VkColorSpaceToString(VkColorSpaceKHR vkColorSpace);
-String VkPresentModeToString(VkPresentModeKHR vkPresentMode);
-
 static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -160,24 +156,27 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
 RYME_API
 void ScriptInit(py::module m)
 {
-    m.def_submodule("Graphics")
-        .def("GetWindowSize", []() {
-            int width, height;
-            SDL_GetWindowSize(_sdlWindow, &width, &height);
-            return std::make_tuple(width, height);
-        })
-        .def("SetWindowSize", [](int width, int height) {
-            SDL_SetWindowSize(_sdlWindow, width, height);
-        });
+    // m.def_submodule("Graphics")
+    //     .def("GetWindowSize", []() {
+    //         int width, height;
+    //         SDL_GetWindowSize(_sdlWindow, &width, &height);
+    //         return std::make_tuple(width, height);
+    //     })
+    //     .def("SetWindowSize", [](int width, int height) {
+    //         SDL_SetWindowSize(_sdlWindow, width, height);
+    //     });
 }
 
 RYME_API
 void Init(String windowTitle, Vec2i windowSize)
 {
+    RYME_BENCHMARK_START();
+
     _windowSize = windowSize;
     _windowTitle = windowTitle;
     
     SDL_bool sdlResult;
+    VkResult vkResult;
     
     ///
     /// Window
@@ -213,14 +212,12 @@ void Init(String windowTitle, Vec2i windowSize)
 
     auto availableLayerList = vk::enumerateInstanceLayerProperties();
 
-    Map<String, VkLayerProperties> availableLayerMap;
+    Map<String, vk::LayerProperties> availableLayerMap;
     for (const auto& layer : availableLayerList) {
         availableLayerMap.emplace(layer.layerName, layer);
     }
 
-    List<const char *> requiredLayerNameList = {
-
-    };
+    List<const char *> requiredLayerNameList = { };
     
     #if defined(RYME_BUILD_DEBUG)
 
@@ -246,7 +243,7 @@ void Init(String windowTitle, Vec2i windowSize)
 
     auto availableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
 
-    Map<String, VkExtensionProperties> availableInstanceExtensionMap;
+    Map<String, vk::ExtensionProperties> availableInstanceExtensionMap;
     for (const auto& extension : availableInstanceExtensionList) {
         availableInstanceExtensionMap.emplace(extension.extensionName, extension);
     }
@@ -291,57 +288,41 @@ void Init(String windowTitle, Vec2i windowSize)
     /// Vulkan Instance
     ///
     
-    const auto& engineVersion = GetVersion();
     const auto& applicationName = GetApplicationName();
     const auto& applicationVersion = GetApplicationVersion();
+    const auto& engineVersion = GetVersion();
 
-    vk::ApplicationInfo applicationInfo = {
-        .pApplicationName = applicationName.c_str(),
-        .applicationVersion = VK_MAKE_VERSION(
-            applicationVersion.Major,
-            applicationVersion.Minor,
-            applicationVersion.Patch
-        ),
-        .pEngineName = RYME_PROJECT_NAME,
-        .engineVersion = VK_MAKE_VERSION(
-            engineVersion.Major,
-            engineVersion.Minor,
-            engineVersion.Patch
-        ),
-        .apiVersion = VK_API_VERSION_1_1,
-    };
+    vk::ApplicationInfo applicationInfo(
+        applicationName.c_str(),
+        applicationVersion.ToVkVersion(),
+        RYME_PROJECT_NAME,
+        engineVersion.ToVkVersion(),
+        VK_API_VERSION_1_1
+    );
 
-    vk::InstanceCreateInfo instanceCreateInfo = {
-        .pApplicationInfo = &applicationInfo,
-    };
-
+    vk::InstanceCreateInfo instanceCreateInfo;
+    instanceCreateInfo.setPApplicationInfo(&applicationInfo);
     instanceCreateInfo.setPEnabledLayerNames(requiredLayerNameList);
     instanceCreateInfo.setPEnabledExtensionNames(requiredInstanceExtensionList);
 
     #if defined(RYME_BUILD_DEBUG)
 
-        VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo;
+        vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo;
 
-        if (availableLayerMap.contains(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
-            VkDebugUtilsMessageSeverityFlagsEXT messageSeverity =
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+        if (availableInstanceExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 
-            VkDebugUtilsMessageTypeFlagsEXT messageType =
-                VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
-                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
-                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            debugUtilsMessengerCreateInfo.messageSeverity = 
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning,
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo;
+                
+            debugUtilsMessengerCreateInfo.messageType =
+                vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
-            debugUtilsMessengerCreateInfo = {
-                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-                .pNext = nullptr,
-                .flags = 0,
-                .messageSeverity = messageSeverity,
-                .messageType = messageType,
-                .pfnUserCallback = _VulkanDebugMessageCallback,
-                .pUserData = nullptr,
-            };
+            debugUtilsMessengerCreateInfo.pfnUserCallback =
+                _VulkanDebugMessageCallback;
             
             instanceCreateInfo.pNext = &debugUtilsMessengerCreateInfo;
         }
@@ -350,20 +331,32 @@ void Init(String windowTitle, Vec2i windowSize)
 
     _vkInstance = vk::createInstance(instanceCreateInfo);
 
-    Log(RYME_ANCHOR, "Vulkan Version: {}.{}",
+    // Required for any EXT functions
+    _vkDynamicDispatch.init(_vkInstance, vkGetInstanceProcAddr);
+
+    Log(RYME_ANCHOR, "Vulkan Header Version: {}.{}.{}",
         VK_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
-        VK_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE)
+        VK_VERSION_MINOR(VK_HEADER_VERSION_COMPLETE),
+        VK_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE)
     );
+
+    ///
+    /// Vulkan Debug Utils Messenger
+    ///
+    
+    #if defined(RYME_BUILD_DEBUG)
+
+        if (availableInstanceExtensionMap.contains(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+            _vkDebugUtilsMessenger = _vkInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo, nullptr, _vkDynamicDispatch);
+        }
+
+    #endif
 
     ///
     /// Vulkan Surface
     ///
     
-    sdlResult = SDL_Vulkan_CreateSurface(
-        _sdlWindow,
-        _vkInstance,
-        &_vkSurface
-    );
+    sdlResult = SDL_Vulkan_CreateSurface(_sdlWindow, _vkInstance, &_vkSurface);
     
     if (!sdlResult) {
         throw Exception("SDL_Vulkan_CreateSurface() failed, {}", SDL_GetError());
@@ -374,11 +367,11 @@ void Init(String windowTitle, Vec2i windowSize)
     ///
 
     for (const auto& physicalDevice : _vkInstance.enumeratePhysicalDevices()) {
-        vkGetPhysicalDeviceProperties(physicalDevice, &_vkPhysicalDeviceProperties);
-        vkGetPhysicalDeviceFeatures(physicalDevice, &_vkPhysicalDeviceFeatures);
+        _vkPhysicalDeviceProperties = physicalDevice.getProperties();
+        _vkPhysicalDeviceFeatures = physicalDevice.getFeatures();
         
         bool isSuitable = (
-            _vkPhysicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+            _vkPhysicalDeviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu &&
             _vkPhysicalDeviceFeatures.geometryShader
         );
 
@@ -399,22 +392,31 @@ void Init(String windowTitle, Vec2i windowSize)
         VK_VERSION_MINOR(_vkPhysicalDeviceProperties.apiVersion),
         VK_VERSION_PATCH(_vkPhysicalDeviceProperties.apiVersion)
     );
-
+    
     ///
     /// Vulkan Queues
     ///
 
-    auto queueFamilyPropertyList = _vkPhysicalDevice.getQueueFamilyProperties();
-
     _vkGraphicsQueueFamilyIndex = UINT32_MAX;
     _vkPresentQueueFamilyIndex = UINT32_MAX;
 
-    Log(RYME_ANCHOR, "Available Vulkan Queue Families:");
+    auto queueFamilyPropertyList = _vkPhysicalDevice.getQueueFamilyProperties();
 
     uint32_t index = 0;
 
+    Log(RYME_ANCHOR, "Available Vulkan Queue Families (* = used):");
+    
     for (const auto& properties : queueFamilyPropertyList) {
         String types;
+
+        if (_vkPhysicalDevice.getSurfaceSupportKHR(index, _vkSurface)) {
+            types += "Present ";
+
+            if (_vkPresentQueueFamilyIndex == UINT32_MAX) {
+                _vkPresentQueueFamilyIndex = index;
+                types.insert(types.end() - 1, '*');
+            }
+        }
 
         if (properties.queueFlags & vk::QueueFlagBits::eGraphics) {
             types += "Graphics ";
@@ -437,18 +439,12 @@ void Init(String windowTitle, Vec2i windowSize)
             types += "SparseBinding ";
         }
 
-        VkBool32 isPresentSupported = _vkPhysicalDevice.getSurfaceSupportKHR(index, _vkSurface);
-
-        if (isPresentSupported) {
-            types += "Present ";
-
-            if (_vkPresentQueueFamilyIndex == UINT32_MAX) {
-                _vkPresentQueueFamilyIndex = index;
-                types.insert(types.end() - 1, '*');
-            }
+        if (properties.queueFlags & vk::QueueFlagBits::eProtected) {
+            types += "Protected ";
         }
 
-        Log(RYME_ANCHOR, "Queue #{}: {}", properties.queueCount, types);
+        Log(RYME_ANCHOR, "\t#{}: {} Queues, {}", index, properties.queueCount, types);
+
         ++index;
     }
 
@@ -457,7 +453,7 @@ void Init(String windowTitle, Vec2i windowSize)
     }
 
     if (_vkPresentQueueFamilyIndex == UINT32_MAX) {
-        throw Exception("No suitable graphics queue found");
+        throw Exception("No suitable present queue found");
     }
 
     const float queuePriorities = 1.0f;
@@ -470,21 +466,17 @@ void Init(String windowTitle, Vec2i windowSize)
 
     for (auto index : queueFamilyIndexSet) {
         queueCreateInfoList.push_back(
-            vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = index,
-                .queueCount = 1,
-                .pQueuePriorities = &queuePriorities,
-            }
+            vk::DeviceQueueCreateInfo({}, index, 1, &queuePriorities)
         );
     }
-    
+
     ///
     /// Vulkan Logical Device
     ///
 
     auto availableDeviceExtensionList = _vkPhysicalDevice.enumerateDeviceExtensionProperties();
 
-    Map<String, VkExtensionProperties> availableDeviceExtensionMap;
+    Map<String, vk::ExtensionProperties> availableDeviceExtensionMap;
     for (const auto& extension : availableDeviceExtensionList) {
         availableDeviceExtensionMap.emplace(extension.extensionName, extension);
     }
@@ -515,15 +507,13 @@ void Init(String windowTitle, Vec2i windowSize)
     deviceCreateInfo.setPEnabledExtensionNames(requiredDeviceExtensionNameList);
 
     _vkDevice = _vkPhysicalDevice.createDevice(deviceCreateInfo);
-
+    
     _vkGraphicsQueue = _vkDevice.getQueue(_vkGraphicsQueueFamilyIndex, 0);
     _vkPresentQueue = _vkDevice.getQueue(_vkPresentQueueFamilyIndex, 0);
 
     ///
     /// Vulkan Memory Allocator
     ///
-
-    VkResult vkResult;
     
     VmaAllocatorCreateFlags allocatorCreateFlags = 0;
 
@@ -551,17 +541,27 @@ void Init(String windowTitle, Vec2i windowSize)
         throw Exception("vmaCreateAllocator() failed");
     }
 
+    VmaBudget vmaBudget;
+    vmaGetBudget(_vmaAllocator, &vmaBudget);
+
+    Log(RYME_ANCHOR, "Vulkan Memory Available: {} ({} Bytes)",
+        FormatBytesHumanReadable(vmaBudget.budget),
+        vmaBudget.budget
+    );
+
     ///
     /// Init Swap Chain
     ///
 
-    initSwapChain();
+    // initSwapChain();
 
     // ///
     // /// Init Sync Objects
     // ///
 
     // initSyncObjects();
+
+    RYME_BENCHMARK_END();
 }
 
 RYME_API
@@ -593,6 +593,12 @@ void Term()
         vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
         _vkSurface = nullptr;
     }
+
+    ///
+    /// Vulkan Debug Utils Messenger
+    ///
+
+    _vkInstance.destroyDebugUtilsMessengerEXT(_vkDebugUtilsMessenger, nullptr, _vkDynamicDispatch);
 
     ///
     /// Vulkan Instance
@@ -679,16 +685,16 @@ Vec2i GetWindowSize()
 //         }
 
 //         Log(RYME_ANCHOR, "\t{} {}",
-//             VkFormatToString(format.format),
-//             VkColorSpaceToString(format.colorSpace)
+//             std::to_string(format.format),
+//             std::to_string(format.colorSpace)
 //         );
 //     }
 
 //     Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {}",
-//         VkFormatToString(surfaceFormat.format));
+//         std::to_string(surfaceFormat.format));
 
 //     Log(RYME_ANCHOR, "Vuilkan Swap Chain Image Color Space: {}",
-//         VkColorSpaceToString(surfaceFormat.colorSpace));
+//         std::to_string(surfaceFormat.colorSpace));
 
 //     uint32_t presentModeCount = 0;
 //     vkGetPhysicalDeviceSurfacePresentModesKHR(
@@ -727,11 +733,11 @@ Vec2i GetWindowSize()
 //             swapChainPresentMode = presentMode;
 //         }
 
-//         Log(RYME_ANCHOR, "\t{}", VkPresentModeToString(presentMode));
+//         Log(RYME_ANCHOR, "\t{}", std::to_string(presentMode));
 //     }
 
 //     Log(RYME_ANCHOR, "Vulkan Swap Chain Present Mode: {}",
-//         VkPresentModeToString(swapChainPresentMode));
+//         std::to_string(swapChainPresentMode));
 
 //     VkSurfaceCapabilitiesKHR surfaceCapabilities;
 //     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -1033,7 +1039,7 @@ Vec2i GetWindowSize()
 //     }
 
 //     Log(RYME_ANCHOR, "Vulkan Depth Buffer Image Format: {}",
-//         VkFormatToString(_vkDepthImageFormat));
+//         std::to_string(_vkDepthImageFormat));
 
 //     VkImageCreateInfo imageCreateInfo = {
 //         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -1305,226 +1311,6 @@ Vec2i GetWindowSize()
 //     }
 // }
 
-String VkResultToString(VkResult vkResult)
-{
-    switch (vkResult) {
-        case VK_SUCCESS:
-            return "VK_SUCCESS";
-        case VK_NOT_READY:
-            return "VK_NOT_READY";
-        case VK_TIMEOUT:
-            return "VK_TIMEOUT";
-        case VK_EVENT_SET:
-            return "VK_EVENT_SET";
-        case VK_EVENT_RESET:
-            return "VK_EVENT_RESET";
-        case VK_INCOMPLETE:
-            return "VK_INCOMPLETE";
-        case VK_ERROR_OUT_OF_HOST_MEMORY:
-            return "VK_ERROR_OUT_OF_HOST_MEMORY";
-        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-            return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-        case VK_ERROR_INITIALIZATION_FAILED:
-            return "VK_ERROR_INITIALIZATION_FAILED";
-        case VK_ERROR_DEVICE_LOST:
-            return "VK_ERROR_DEVICE_LOST";
-        case VK_ERROR_MEMORY_MAP_FAILED:
-            return "VK_ERROR_MEMORY_MAP_FAILED";
-        case VK_ERROR_LAYER_NOT_PRESENT:
-            return "VK_ERROR_LAYER_NOT_PRESENT";
-        case VK_ERROR_EXTENSION_NOT_PRESENT:
-            return "VK_ERROR_EXTENSION_NOT_PRESENT";
-        case VK_ERROR_FEATURE_NOT_PRESENT:
-            return "VK_ERROR_FEATURE_NOT_PRESENT";
-        case VK_ERROR_INCOMPATIBLE_DRIVER:
-            return "VK_ERROR_INCOMPATIBLE_DRIVER";
-        case VK_ERROR_TOO_MANY_OBJECTS:
-            return "VK_ERROR_TOO_MANY_OBJECTS";
-        case VK_ERROR_FORMAT_NOT_SUPPORTED:
-            return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-        case VK_ERROR_FRAGMENTED_POOL:
-            return "VK_ERROR_FRAGMENTED_POOL";
-        case VK_ERROR_UNKNOWN:
-            return "VK_ERROR_UNKNOWN";
-        case VK_ERROR_OUT_OF_POOL_MEMORY:
-            return "VK_ERROR_OUT_OF_POOL_MEMORY";
-        case VK_ERROR_INVALID_EXTERNAL_HANDLE:
-            return "VK_ERROR_INVALID_EXTERNAL_HANDLE";
-        case VK_ERROR_FRAGMENTATION:
-            return "VK_ERROR_FRAGMENTATION";
-        case VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS:
-            return "VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS";
-        default:
-            return fmt::format("Unknown ({})", vkResult);
-    }
-}
-
-String VkFormatToString(VkFormat vkFormat)
-{
-    // Note: All formats that do not include RGBA have been removed for brevity
-    switch (vkFormat) {
-        case VK_FORMAT_UNDEFINED:
-            return "VK_FORMAT_UNDEFINED";
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            return "VK_FORMAT_R8G8B8A8_UNORM";
-        case VK_FORMAT_R8G8B8A8_SNORM:
-            return "VK_FORMAT_R8G8B8A8_SNORM";
-        case VK_FORMAT_R8G8B8A8_USCALED:
-            return "VK_FORMAT_R8G8B8A8_USCALED";
-        case VK_FORMAT_R8G8B8A8_SSCALED:
-            return "VK_FORMAT_R8G8B8A8_SSCALED";
-        case VK_FORMAT_R8G8B8A8_UINT:
-            return "VK_FORMAT_R8G8B8A8_UINT";
-        case VK_FORMAT_R8G8B8A8_SINT:
-            return "VK_FORMAT_R8G8B8A8_SINT";
-        case VK_FORMAT_R8G8B8A8_SRGB:
-            return "VK_FORMAT_R8G8B8A8_SRGB";
-        case VK_FORMAT_B8G8R8A8_UNORM:
-            return "VK_FORMAT_B8G8R8A8_UNORM";
-        case VK_FORMAT_B8G8R8A8_SNORM:
-            return "VK_FORMAT_B8G8R8A8_SNORM";
-        case VK_FORMAT_B8G8R8A8_USCALED:
-            return "VK_FORMAT_B8G8R8A8_USCALED";
-        case VK_FORMAT_B8G8R8A8_SSCALED:
-            return "VK_FORMAT_B8G8R8A8_SSCALED";
-        case VK_FORMAT_B8G8R8A8_UINT:
-            return "VK_FORMAT_B8G8R8A8_UINT";
-        case VK_FORMAT_B8G8R8A8_SINT:
-            return "VK_FORMAT_B8G8R8A8_SINT";
-        case VK_FORMAT_B8G8R8A8_SRGB:
-            return "VK_FORMAT_B8G8R8A8_SRGB";
-        case VK_FORMAT_A8B8G8R8_UNORM_PACK32:
-            return "VK_FORMAT_A8B8G8R8_UNORM_PACK32";
-        case VK_FORMAT_A8B8G8R8_SNORM_PACK32:
-            return "VK_FORMAT_A8B8G8R8_SNORM_PACK32";
-        case VK_FORMAT_A8B8G8R8_USCALED_PACK32:
-            return "VK_FORMAT_A8B8G8R8_USCALED_PACK32";
-        case VK_FORMAT_A8B8G8R8_SSCALED_PACK32:
-            return "VK_FORMAT_A8B8G8R8_SSCALED_PACK32";
-        case VK_FORMAT_A8B8G8R8_UINT_PACK32:
-            return "VK_FORMAT_A8B8G8R8_UINT_PACK32";
-        case VK_FORMAT_A8B8G8R8_SINT_PACK32:
-            return "VK_FORMAT_A8B8G8R8_SINT_PACK32";
-        case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
-            return "VK_FORMAT_A8B8G8R8_SRGB_PACK32";
-        case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
-            return "VK_FORMAT_A2R10G10B10_UNORM_PACK32";
-        case VK_FORMAT_A2R10G10B10_SNORM_PACK32:
-            return "VK_FORMAT_A2R10G10B10_SNORM_PACK32";
-        case VK_FORMAT_A2R10G10B10_USCALED_PACK32:
-            return "VK_FORMAT_A2R10G10B10_USCALED_PACK32";
-        case VK_FORMAT_A2R10G10B10_SSCALED_PACK32:
-            return "VK_FORMAT_A2R10G10B10_SSCALED_PACK32";
-        case VK_FORMAT_A2R10G10B10_UINT_PACK32:
-            return "VK_FORMAT_A2R10G10B10_UINT_PACK32";
-        case VK_FORMAT_A2R10G10B10_SINT_PACK32:
-            return "VK_FORMAT_A2R10G10B10_SINT_PACK32";
-        case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
-            return "VK_FORMAT_A2B10G10R10_UNORM_PACK32";
-        case VK_FORMAT_A2B10G10R10_SNORM_PACK32:
-            return "VK_FORMAT_A2B10G10R10_SNORM_PACK32";
-        case VK_FORMAT_A2B10G10R10_USCALED_PACK32:
-            return "VK_FORMAT_A2B10G10R10_USCALED_PACK32";
-        case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:
-            return "VK_FORMAT_A2B10G10R10_SSCALED_PACK32";
-        case VK_FORMAT_A2B10G10R10_UINT_PACK32:
-            return "VK_FORMAT_A2B10G10R10_UINT_PACK32";
-        case VK_FORMAT_A2B10G10R10_SINT_PACK32:
-            return "VK_FORMAT_A2B10G10R10_SINT_PACK32";
-        case VK_FORMAT_R16G16B16A16_UNORM:
-            return "VK_FORMAT_R16G16B16A16_UNORM";
-        case VK_FORMAT_R16G16B16A16_SNORM:
-            return "VK_FORMAT_R16G16B16A16_SNORM";
-        case VK_FORMAT_R16G16B16A16_USCALED:
-            return "VK_FORMAT_R16G16B16A16_USCALED";
-        case VK_FORMAT_R16G16B16A16_SSCALED:
-            return "VK_FORMAT_R16G16B16A16_SSCALED";
-        case VK_FORMAT_R16G16B16A16_UINT:
-            return "VK_FORMAT_R16G16B16A16_UINT";
-        case VK_FORMAT_R16G16B16A16_SINT:
-            return "VK_FORMAT_R16G16B16A16_SINT";
-        case VK_FORMAT_R16G16B16A16_SFLOAT:
-            return "VK_FORMAT_R16G16B16A16_SFLOAT";
-        case VK_FORMAT_R32G32B32A32_UINT:
-            return "VK_FORMAT_R32G32B32A32_UINT";
-        case VK_FORMAT_R32G32B32A32_SINT:
-            return "VK_FORMAT_R32G32B32A32_SINT";
-        case VK_FORMAT_R32G32B32A32_SFLOAT:
-            return "VK_FORMAT_R32G32B32A32_SFLOAT";
-        case VK_FORMAT_R64G64B64A64_UINT:
-            return "VK_FORMAT_R64G64B64A64_UINT";
-        case VK_FORMAT_R64G64B64A64_SINT:
-            return "VK_FORMAT_R64G64B64A64_SINT";
-        case VK_FORMAT_R64G64B64A64_SFLOAT:
-            return "VK_FORMAT_R64G64B64A64_SFLOAT";
-        case VK_FORMAT_D16_UNORM:
-            return "VK_FORMAT_D16_UNORM";
-        case VK_FORMAT_D32_SFLOAT:
-            return "VK_FORMAT_D32_SFLOAT";
-        case VK_FORMAT_D16_UNORM_S8_UINT:
-            return "VK_FORMAT_D16_UNORM_S8_UINT";
-        case VK_FORMAT_D24_UNORM_S8_UINT:
-            return "VK_FORMAT_D24_UNORM_S8_UINT";
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            return "VK_FORMAT_D32_SFLOAT_S8_UINT";
-        default:
-            return fmt::format("Unknown ({})", vkFormat);
-    }
-}
-
-String VkColorSpaceToString(VkColorSpaceKHR vkColorSpace)
-{
-    switch (vkColorSpace) {
-        case VK_COLOR_SPACE_SRGB_NONLINEAR_KHR:
-            return "VK_COLOR_SPACE_SRGB_NONLINEAR_KHR";
-        case VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT:
-            return "VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT";
-        case VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT:
-            return "VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT";
-        case VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT:
-            return "VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT";
-        case VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT:
-            return "VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT";
-        case VK_COLOR_SPACE_BT709_LINEAR_EXT:
-            return "VK_COLOR_SPACE_BT709_LINEAR_EXT";
-        case VK_COLOR_SPACE_BT709_NONLINEAR_EXT:
-            return "VK_COLOR_SPACE_BT709_NONLINEAR_EXT";
-        case VK_COLOR_SPACE_BT2020_LINEAR_EXT:
-            return "VK_COLOR_SPACE_BT2020_LINEAR_EXT";
-        case VK_COLOR_SPACE_HDR10_ST2084_EXT:
-            return "VK_COLOR_SPACE_HDR10_ST2084_EXT";
-        case VK_COLOR_SPACE_DOLBYVISION_EXT:
-            return "VK_COLOR_SPACE_DOLBYVISION_EXT";
-        case VK_COLOR_SPACE_HDR10_HLG_EXT:
-            return "VK_COLOR_SPACE_HDR10_HLG_EXT";
-        case VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT:
-            return "VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT";
-        case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT:
-            return "VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT";
-        case VK_COLOR_SPACE_PASS_THROUGH_EXT:
-            return "VK_COLOR_SPACE_PASS_THROUGH_EXT";
-        case VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT:
-            return "VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT";
-        default:
-            return fmt::format("Unknown ({})", vkColorSpace);
-    }
-}
-
-String VkPresentModeToString(VkPresentModeKHR vkPresentMode)
-{
-    switch (vkPresentMode) {
-        case VK_PRESENT_MODE_IMMEDIATE_KHR:
-            return "VK_PRESENT_MODE_IMMEDIATE_KHR";
-        case VK_PRESENT_MODE_MAILBOX_KHR:
-            return "VK_PRESENT_MODE_MAILBOX_KHR";
-        case VK_PRESENT_MODE_FIFO_KHR:
-            return "VK_PRESENT_MODE_FIFO_KHR";
-        case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
-            return "VK_PRESENT_MODE_FIFO_RELAXED_KHR";
-        default:
-            return fmt::format("Unknown ({})", vkPresentMode);
-    }
-}
 
 } // namespace Graphics
 
