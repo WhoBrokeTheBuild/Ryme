@@ -12,6 +12,8 @@ RYME_ENABLE_WARNINGS()
 
 #define VK_LAYER_KHRONOS_VALIDATION_NAME "VK_LAYER_KHRONOS_validation"
 
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
 namespace ryme {
 
 namespace Graphics {
@@ -26,15 +28,13 @@ String _windowTitle;
 
 // Vulkan Instance
 
-vk::DispatchLoaderDynamic _vkDynamicDispatch;
-
 vk::Instance _vkInstance;
 
 vk::DebugUtilsMessengerEXT _vkDebugUtilsMessenger;
 
 // Vulkan Surface
 
-VkSurfaceKHR _vkSurface;
+vk::SurfaceKHR _vkSurface;
 
 // Vulkan Physical Device
 
@@ -61,6 +61,12 @@ vk::Device _vkDevice;
 // Vulkan Memory Allocator
 
 VmaAllocator _vmaAllocator = VK_NULL_HANDLE;
+
+// Vulkan Command Buffer
+
+vk::CommandPool _vkCommandPool;
+
+List<vk::CommandBuffer> _vkCommandBufferList;
 
 // Swap Chain
 
@@ -206,6 +212,10 @@ void Init(String windowTitle, Vec2i windowSize)
         throw Exception("SDL_CreateWindow failed, {}", SDL_GetError());
     }
 
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(
+        (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr()
+    );
+
     ///
     /// Vulkan Instance Layers
     ///
@@ -335,8 +345,7 @@ void Init(String windowTitle, Vec2i windowSize)
 
     _vkInstance = vk::createInstance(instanceCreateInfo);
 
-    // Required for any EXT functions
-    _vkDynamicDispatch.init(_vkInstance, vkGetInstanceProcAddr);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(_vkInstance);
 
     Log(RYME_ANCHOR, "Vulkan Header Version: {}.{}.{}",
         VK_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
@@ -351,7 +360,7 @@ void Init(String windowTitle, Vec2i windowSize)
     #if defined(VK_EXT_debug_utils)
 
         if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-            _vkDebugUtilsMessenger = _vkInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo, nullptr, _vkDynamicDispatch);
+            _vkDebugUtilsMessenger = _vkInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo);
         }
 
     #endif
@@ -360,7 +369,7 @@ void Init(String windowTitle, Vec2i windowSize)
     /// Vulkan Surface
     ///
     
-    sdlResult = SDL_Vulkan_CreateSurface(_sdlWindow, _vkInstance, &_vkSurface);
+    sdlResult = SDL_Vulkan_CreateSurface(_sdlWindow, _vkInstance, (VkSurfaceKHR *)&_vkSurface);
     
     if (!sdlResult) {
         throw Exception("SDL_Vulkan_CreateSurface() failed, {}", SDL_GetError());
@@ -511,12 +520,14 @@ void Init(String windowTitle, Vec2i windowSize)
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-    vk::DeviceCreateInfo deviceCreateInfo = {};
+    vk::DeviceCreateInfo deviceCreateInfo;
     deviceCreateInfo.setQueueCreateInfos(queueCreateInfoList);
     deviceCreateInfo.setPEnabledLayerNames(requiredLayerNameList);
     deviceCreateInfo.setPEnabledExtensionNames(requiredDeviceExtensionNameList);
 
     _vkDevice = _vkPhysicalDevice.createDevice(deviceCreateInfo);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(_vkDevice);
     
     _vkGraphicsQueue = _vkDevice.getQueue(_vkGraphicsQueueFamilyIndex, 0);
     _vkPresentQueue = _vkDevice.getQueue(_vkPresentQueueFamilyIndex, 0);
@@ -539,17 +550,12 @@ void Init(String windowTitle, Vec2i windowSize)
         .flags = allocatorCreateFlags,
         .physicalDevice = _vkPhysicalDevice,
         .device = _vkDevice,
-        .preferredLargeHeapBlockSize = 0,
-        .pAllocationCallbacks = nullptr,
-        .pDeviceMemoryCallbacks = nullptr,
+        .frameInUseCount = _backbufferCount, // ?
         .instance = _vkInstance,
         .vulkanApiVersion = VK_API_VERSION_1_1,
     };
 
-    vkResult = vmaCreateAllocator(
-        &allocatorCreateInfo,
-        &_vmaAllocator
-    );
+    vkResult = vmaCreateAllocator(&allocatorCreateInfo, &_vmaAllocator);
 
     if (vkResult != VK_SUCCESS) {
         throw Exception("vmaCreateAllocator() failed");
@@ -561,6 +567,22 @@ void Init(String windowTitle, Vec2i windowSize)
     Log(RYME_ANCHOR, "Vulkan Memory Available: {} ({} Bytes)",
         FormatBytesHumanReadable(vmaBudget.budget),
         vmaBudget.budget
+    );
+
+    ///
+    /// Vulkan Command Buffer
+    ///
+
+    _vkCommandPool = _vkDevice.createCommandPool(
+        vk::CommandPoolCreateInfo({}, _vkGraphicsQueueFamilyIndex)
+    );
+
+    _vkCommandBufferList = _vkDevice.allocateCommandBuffers(
+        vk::CommandBufferAllocateInfo(
+            _vkCommandPool,
+            vk::CommandBufferLevel::ePrimary,
+            _backbufferCount
+        )
     );
 
     ///
@@ -584,46 +606,23 @@ void Term()
     // termSyncObjects();
     // termSwapChain();
 
-    ///
-    /// Vulkan Memory Allocator
-    ///
+    _vkDevice.freeCommandBuffers(_vkCommandPool, _vkCommandBufferList);
+
+    _vkDevice.destroyCommandPool(_vkCommandPool);
 
     if (_vmaAllocator) {
         vmaDestroyAllocator(_vmaAllocator);
         _vmaAllocator = nullptr;
     }
 
-    ///
-    /// Vulkan Logical Device
-    ///
-
     _vkDevice.destroy();
 
-    ///
-    /// Vulkan Surface
-    ///
-    
-    if (_vkSurface) {
-        vkDestroySurfaceKHR(_vkInstance, _vkSurface, nullptr);
-        _vkSurface = nullptr;
-    }
+    _vkInstance.destroySurfaceKHR(_vkSurface);
 
-    ///
-    /// Vulkan Debug Utils Messenger
-    ///
+    _vkInstance.destroyDebugUtilsMessengerEXT(_vkDebugUtilsMessenger);
 
-    _vkInstance.destroyDebugUtilsMessengerEXT(_vkDebugUtilsMessenger, nullptr, _vkDynamicDispatch);
-
-    ///
-    /// Vulkan Instance
-    ///
-    
     _vkInstance.destroy();
 
-    ///
-    /// Window
-    ///
-    
     if (_sdlWindow) {
         SDL_DestroyWindow(_sdlWindow);
         _sdlWindow = nullptr;
