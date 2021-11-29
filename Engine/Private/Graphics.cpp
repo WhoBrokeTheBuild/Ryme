@@ -1,6 +1,9 @@
 #include <Ryme/Graphics.hpp>
 #include <Ryme/Ryme.hpp>
 
+#include <Ryme/ShaderGlobals.hpp>
+#include <Ryme/ShaderTransform.hpp>
+
 #include <SDL_vulkan.h>
 
 RYME_DISABLE_WARNINGS()
@@ -9,8 +12,6 @@ RYME_DISABLE_WARNINGS()
     #include <vk_mem_alloc.h>
 
 RYME_ENABLE_WARNINGS()
-
-#define VK_LAYER_KHRONOS_VALIDATION_NAME "VK_LAYER_KHRONOS_validation"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
@@ -27,6 +28,10 @@ Vec2i _windowSize;
 String _windowTitle;
 
 // Vulkan Instance
+
+List<vk::LayerProperties> _vkAvailableInstanceLayerList;
+
+List<vk::ExtensionProperties> _vkAvailableInstanceExtensionList;
 
 vk::Instance _vkInstance;
 
@@ -56,6 +61,8 @@ vk::Queue _vkPresentQueue;
 
 // Vulkan Logical Device
 
+List<vk::ExtensionProperties> _vkAvailableDeviceExtensionList;
+
 vk::Device _vkDevice;
 
 // Vulkan Memory Allocator
@@ -70,27 +77,27 @@ List<vk::CommandBuffer> _vkCommandBufferList;
 
 // Swap Chain
 
-VkExtent2D _vkSwapChainExtent;
+vk::Extent2D _vkSwapChainExtent;
 
 uint32_t _backbufferCount = 2;
 
-VkSwapchainKHR _vkSwapChain = VK_NULL_HANDLE;
+vk::SwapchainKHR _vkSwapChain;
 
-VkFormat _vkSwapChainImageFormat;
+vk::Format _vkSwapChainImageFormat;
 
-List<VkImage> _vkSwapChainImageList;
+List<vk::Image> _vkSwapChainImageList;
 
-List<VkImageView> _vkSwapChainImageViewList;
+List<vk::ImageView> _vkSwapChainImageViewList;
 
 // Depth Buffer
 
-VkFormat _vkDepthImageFormat;
+vk::Format _vkDepthImageFormat;
 
-VkImage _vkDepthImage = VK_NULL_HANDLE;
+vk::Image _vkDepthImage;
 
 VmaAllocation _vmaDepthImageAllocation = VK_NULL_HANDLE;
 
-VkImageView _vkDepthImageView = VK_NULL_HANDLE;
+vk::ImageView _vkDepthImageView;
 
 // Render Pass
 
@@ -112,17 +119,52 @@ List<VkFence> _vkInFlightFenceList;
 
 List<VkFence> _vkImageInFlightList;
 
+// TODO: Move?
+vk::Instance GetVkInstance()
+{
+    return _vkInstance;
+}
+
+vk::Device GetVkDevice()
+{
+    return _vkDevice;
+}
+
 void initSwapChain();
 void termSwapChain();
-void initSyncObjects();
-void termSyncObjects();
-void initRenderPass();
-void termRenderPass();
-void initDescriptorPool();
-void termDescriptorPool();
 
-void initDepthBuffer();
-void termDepthBuffer();
+inline bool hasInstanceLayer(StringView name)
+{
+    for (const auto& layer : _vkAvailableInstanceLayerList) {
+        if (layer.layerName == name) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+inline bool hasInstanceExtension(StringView name)
+{
+    for (const auto& extension : _vkAvailableInstanceExtensionList) {
+        if (extension.extensionName == name) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+inline bool hasDeviceExtension(StringView name)
+{
+    for (const auto& extension : _vkAvailableDeviceExtensionList) {
+        if (extension.extensionName == name) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -173,21 +215,8 @@ void ScriptInit(py::module m)
     //     });
 }
 
-RYME_API
-void Init(String windowTitle, Vec2i windowSize)
+void initWindow()
 {
-    RYME_BENCHMARK_START();
-
-    _windowSize = windowSize;
-    _windowTitle = windowTitle;
-    
-    SDL_bool sdlResult;
-    VkResult vkResult;
-    
-    ///
-    /// Window
-    ///
-    
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
         throw Exception("SDL_Init failed, {}", SDL_GetError());
     }
@@ -215,34 +244,23 @@ void Init(String windowTitle, Vec2i windowSize)
     VULKAN_HPP_DEFAULT_DISPATCHER.init(
         (PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr()
     );
+}
 
-    ///
-    /// Vulkan Instance Layers
-    ///
+void initInstance()
+{
 
-    auto availableLayerList = vk::enumerateInstanceLayerProperties();
+#pragma region Layers
 
-    auto hasLayer = [&](StringView name) {
-        for (const auto& layer : availableLayerList) {
-            if (layer.layerName == name) {
-                return true;
-            }
-        }
-        return false;
-    };
+    _vkAvailableInstanceLayerList = vk::enumerateInstanceLayerProperties();
 
     List<const char *> requiredLayerNameList = { };
     
-    #if defined(RYME_BUILD_DEBUG)
-
-        if (hasLayer(VK_LAYER_KHRONOS_VALIDATION_NAME)) {
-            requiredLayerNameList.push_back(VK_LAYER_KHRONOS_VALIDATION_NAME);
-        }
-
-    #endif
+    if (hasInstanceLayer("VK_LAYER_KHRONOS_validation")) {
+        requiredLayerNameList.push_back("VK_LAYER_KHRONOS_validation");
+    }
     
     Log(RYME_ANCHOR, "Available Vulkan Layers:");
-    for (const auto& layer : availableLayerList) {
+    for (const auto& layer : _vkAvailableInstanceLayerList) {
         Log(RYME_ANCHOR, "\t{}: {}", layer.layerName, layer.description);
     }
 
@@ -251,26 +269,16 @@ void Init(String windowTitle, Vec2i windowSize)
         Log(RYME_ANCHOR, "\t{}", layer);
     }
 
-    ///
-    /// Vulkan Instance Extensions
-    ///
+#pragma endregion
+#pragma region Extensions
 
-    auto availableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
-
-    auto hasInstanceExtension = [&](StringView name) {
-        for (const auto& extension : availableInstanceExtensionList) {
-            if (extension.extensionName == name) {
-                return true;
-            }
-        }
-        return false;
-    };
+    _vkAvailableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
 
     uint32_t requiredInstanceExtensionCount = 0;
     SDL_Vulkan_GetInstanceExtensions(_sdlWindow, &requiredInstanceExtensionCount, nullptr);
 
     List<const char *> requiredInstanceExtensionList(requiredInstanceExtensionCount);
-    sdlResult = SDL_Vulkan_GetInstanceExtensions(
+    SDL_bool sdlResult = SDL_Vulkan_GetInstanceExtensions(
         _sdlWindow,
         &requiredInstanceExtensionCount,
         requiredInstanceExtensionList.data()
@@ -280,7 +288,7 @@ void Init(String windowTitle, Vec2i windowSize)
         throw Exception("SDL_Vulkan_GetInstanceExtensions() failed, {}", SDL_GetError());
     }
 
-    #if defined(RYME_BUILD_DEBUG)
+    #if defined(VK_EXT_debug_utils)
 
         if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
             requiredInstanceExtensionList.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -289,7 +297,7 @@ void Init(String windowTitle, Vec2i windowSize)
     #endif
 
     Log(RYME_ANCHOR, "Available Vulkan Instance Extensions:");
-    for (const auto& extension : availableInstanceExtensionList) {
+    for (const auto& extension : _vkAvailableInstanceExtensionList) {
         Log(RYME_ANCHOR, "\t{}", extension.extensionName);
     }
 
@@ -298,46 +306,44 @@ void Init(String windowTitle, Vec2i windowSize)
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-    ///
-    /// Vulkan Instance
-    ///
-    
+#pragma endregion
+#pragma region Application Info
+
     const auto& applicationName = GetApplicationName();
     const auto& applicationVersion = GetApplicationVersion();
     const auto& engineVersion = GetVersion();
 
-    vk::ApplicationInfo applicationInfo(
-        applicationName.c_str(),
-        applicationVersion.ToVkVersion(),
-        RYME_PROJECT_NAME,
-        engineVersion.ToVkVersion(),
-        VK_API_VERSION_1_1
-    );
+    vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
+        .setPApplicationName(applicationName.c_str())
+        .setApplicationVersion(applicationVersion.ToVkVersion())
+        .setPEngineName(RYME_PROJECT_NAME)
+        .setEngineVersion(engineVersion.ToVkVersion())
+        .setApiVersion(VK_API_VERSION_1_1);
 
-    vk::InstanceCreateInfo instanceCreateInfo;
-    instanceCreateInfo.setPApplicationInfo(&applicationInfo);
-    instanceCreateInfo.setPEnabledLayerNames(requiredLayerNameList);
-    instanceCreateInfo.setPEnabledExtensionNames(requiredInstanceExtensionList);
+#pragma endregion
+#pragma region Instance
+    
+    auto instanceCreateInfo = vk::InstanceCreateInfo()
+        .setPApplicationInfo(&applicationInfo)
+        .setPEnabledLayerNames(requiredLayerNameList)
+        .setPEnabledExtensionNames(requiredInstanceExtensionList);
 
     #if defined(VK_EXT_debug_utils)
 
-        vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo;
-
-        if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-
-            debugUtilsMessengerCreateInfo.messageSeverity = 
+        auto debugUtilsMessengerCreateInfo = vk::DebugUtilsMessengerCreateInfoEXT()
+            .setMessageSeverity( 
                 vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
                 vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo;
-                
-            debugUtilsMessengerCreateInfo.messageType =
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo
+            )
+            .setMessageType(
                 vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
                 vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-
-            debugUtilsMessengerCreateInfo.pfnUserCallback =
-                _VulkanDebugMessageCallback;
+                vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance
+            )
+            .setPfnUserCallback(_VulkanDebugMessageCallback);
             
+        if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
             instanceCreateInfo.pNext = &debugUtilsMessengerCreateInfo;
         }
 
@@ -353,10 +359,9 @@ void Init(String windowTitle, Vec2i windowSize)
         VK_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE)
     );
 
-    ///
-    /// Vulkan Debug Utils Messenger
-    ///
-    
+#pragma endregion
+#pragma region Debug Utils Messenger
+
     #if defined(VK_EXT_debug_utils)
 
         if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
@@ -365,19 +370,27 @@ void Init(String windowTitle, Vec2i windowSize)
 
     #endif
 
-    ///
-    /// Vulkan Surface
-    ///
-    
-    sdlResult = SDL_Vulkan_CreateSurface(_sdlWindow, _vkInstance, (VkSurfaceKHR *)&_vkSurface);
+#pragma endregion
+
+}
+
+void initSurface()
+{
+    SDL_bool sdlResult = SDL_Vulkan_CreateSurface(
+        _sdlWindow,
+        _vkInstance,
+        reinterpret_cast<VkSurfaceKHR *>(&_vkSurface)
+    );
     
     if (!sdlResult) {
         throw Exception("SDL_Vulkan_CreateSurface() failed, {}", SDL_GetError());
     }
+}
 
-    ///
-    /// Vulkan Physical Device
-    ///
+void initDevice()
+{
+
+#pragma region Physical Device
 
     for (const auto& physicalDevice : _vkInstance.enumeratePhysicalDevices()) {
         _vkPhysicalDeviceProperties = physicalDevice.getProperties();
@@ -405,10 +418,9 @@ void Init(String windowTitle, Vec2i windowSize)
         VK_VERSION_MINOR(_vkPhysicalDeviceProperties.apiVersion),
         VK_VERSION_PATCH(_vkPhysicalDeviceProperties.apiVersion)
     );
-    
-    ///
-    /// Vulkan Queues
-    ///
+
+#pragma endregion
+#pragma region Queues
 
     _vkGraphicsQueueFamilyIndex = UINT32_MAX;
     _vkPresentQueueFamilyIndex = UINT32_MAX;
@@ -417,46 +429,42 @@ void Init(String windowTitle, Vec2i windowSize)
 
     uint32_t index = 0;
 
-    Log(RYME_ANCHOR, "Available Vulkan Queue Families (* = used):");
+    Log(RYME_ANCHOR, "Available Vulkan Queue Families:");
+
+    Log(RYME_ANCHOR, "{} {} {} {} {}",
+        offsetof(ShaderGlobals, Resolution),
+        offsetof(ShaderGlobals, Mouse),
+        offsetof(ShaderGlobals, FrameCount),
+        offsetof(ShaderGlobals, TotalTime),
+        offsetof(ShaderGlobals, FrameSpeedRatio)
+    );
     
     for (const auto& properties : queueFamilyPropertyList) {
-        String types;
+        auto hasPresent = _vkPhysicalDevice.getSurfaceSupportKHR(index, _vkSurface);
+        bool hasGraphics = (properties.queueFlags & vk::QueueFlagBits::eGraphics ? true : false);
 
-        if (_vkPhysicalDevice.getSurfaceSupportKHR(index, _vkSurface)) {
-            types += "Present ";
-
-            if (_vkPresentQueueFamilyIndex == UINT32_MAX) {
-                _vkPresentQueueFamilyIndex = index;
-                types.insert(types.end() - 1, '*');
-            }
+        // Pick the first available Queue with Graphics support
+        if (_vkGraphicsQueueFamilyIndex == UINT32_MAX && hasGraphics) {
+            _vkGraphicsQueueFamilyIndex = index;
+        }
+        
+        // Pick the first available Queue with Present support
+        if (_vkPresentQueueFamilyIndex == UINT32_MAX && hasPresent) {
+            _vkPresentQueueFamilyIndex = index;
         }
 
-        if (properties.queueFlags & vk::QueueFlagBits::eGraphics) {
-            types += "Graphics ";
-
-            if (_vkGraphicsQueueFamilyIndex == UINT32_MAX) {
-                _vkGraphicsQueueFamilyIndex = index;
-                types.insert(types.end() - 1, '*');
-            }
+        // If our Graphics and Present Queues aren't the same, try to find one that supports both
+        if (_vkGraphicsQueueFamilyIndex != _vkPresentQueueFamilyIndex
+            && hasPresent && hasGraphics) {
+            _vkGraphicsQueueFamilyIndex = index;
+            _vkPresentQueueFamilyIndex = index;
         }
 
-        if (properties.queueFlags & vk::QueueFlagBits::eCompute) {
-            types += "Compute ";
-        }
-
-        if (properties.queueFlags & vk::QueueFlagBits::eTransfer) {
-            types += "Transfer ";
-        }
-
-        if (properties.queueFlags & vk::QueueFlagBits::eSparseBinding) {
-            types += "SparseBinding ";
-        }
-
-        if (properties.queueFlags & vk::QueueFlagBits::eProtected) {
-            types += "Protected ";
-        }
-
-        Log(RYME_ANCHOR, "\t#{}: {} Queues, {}", index, properties.queueCount, types);
+        Log(RYME_ANCHOR, "\t#{}: {} Queues, {}",
+            index,
+            properties.queueCount,
+            vk::to_string(properties.queueFlags)
+        );
 
         ++index;
     }
@@ -468,6 +476,9 @@ void Init(String windowTitle, Vec2i windowSize)
     if (_vkPresentQueueFamilyIndex == UINT32_MAX) {
         throw Exception("No suitable present queue found");
     }
+
+    Log(RYME_ANCHOR, "Vulkan Graphics Queue Family Index: #{}", _vkGraphicsQueueFamilyIndex);
+    Log(RYME_ANCHOR, "Vulkan Present Queue Family Index: #{}", _vkPresentQueueFamilyIndex);
 
     const float queuePriorities = 1.0f;
 
@@ -483,20 +494,10 @@ void Init(String windowTitle, Vec2i windowSize)
         );
     }
 
-    ///
-    /// Vulkan Logical Device
-    ///
+#pragma endregion
+#pragma region Extensions
 
-    auto availableDeviceExtensionList = _vkPhysicalDevice.enumerateDeviceExtensionProperties();
-
-    auto hasDeviceExtension = [&](StringView name) {
-        for (const auto& extension : availableDeviceExtensionList) {
-            if (extension.extensionName == name) {
-                return true;
-            }
-        }
-        return false;
-    };
+    _vkAvailableDeviceExtensionList = _vkPhysicalDevice.enumerateDeviceExtensionProperties();
 
     List<const char *> requiredDeviceExtensionNameList = { };
     
@@ -511,7 +512,7 @@ void Init(String windowTitle, Vec2i windowSize)
     requiredDeviceExtensionNameList.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     
     Log(RYME_ANCHOR, "Available Vulkan Device Extensions:");
-    for (const auto& extension : availableDeviceExtensionList) {
+    for (const auto& extension : _vkAvailableDeviceExtensionList) {
         Log(RYME_ANCHOR, "\t{}", extension.extensionName);
     }
 
@@ -520,10 +521,12 @@ void Init(String windowTitle, Vec2i windowSize)
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-    vk::DeviceCreateInfo deviceCreateInfo;
-    deviceCreateInfo.setQueueCreateInfos(queueCreateInfoList);
-    deviceCreateInfo.setPEnabledLayerNames(requiredLayerNameList);
-    deviceCreateInfo.setPEnabledExtensionNames(requiredDeviceExtensionNameList);
+#pragma endregion
+#pragma region Device
+
+    auto deviceCreateInfo = vk::DeviceCreateInfo()
+        .setQueueCreateInfos(queueCreateInfoList)
+        .setPEnabledExtensionNames(requiredDeviceExtensionNameList);
 
     _vkDevice = _vkPhysicalDevice.createDevice(deviceCreateInfo);
 
@@ -532,10 +535,12 @@ void Init(String windowTitle, Vec2i windowSize)
     _vkGraphicsQueue = _vkDevice.getQueue(_vkGraphicsQueueFamilyIndex, 0);
     _vkPresentQueue = _vkDevice.getQueue(_vkPresentQueueFamilyIndex, 0);
 
-    ///
-    /// Vulkan Memory Allocator
-    ///
-    
+#pragma endregion
+
+}
+
+void initAllocator()
+{
     VmaAllocatorCreateFlags allocatorCreateFlags = 0;
 
     #if defined(VK_EXT_memory_budget)
@@ -555,7 +560,7 @@ void Init(String windowTitle, Vec2i windowSize)
         .vulkanApiVersion = VK_API_VERSION_1_1,
     };
 
-    vkResult = vmaCreateAllocator(&allocatorCreateInfo, &_vmaAllocator);
+    VkResult vkResult = vmaCreateAllocator(&allocatorCreateInfo, &_vmaAllocator);
 
     if (vkResult != VK_SUCCESS) {
         throw Exception("vmaCreateAllocator() failed");
@@ -568,11 +573,101 @@ void Init(String windowTitle, Vec2i windowSize)
         FormatBytesHumanReadable(vmaBudget.budget),
         vmaBudget.budget
     );
+}
 
-    ///
-    /// Vulkan Command Buffer
-    ///
+void initDepthBuffer()
+{
+    List<vk::Format> potentialFormatList = {
+        vk::Format::eD32Sfloat,
+        vk::Format::eD32SfloatS8Uint,
+        vk::Format::eD24UnormS8Uint,
+        vk::Format::eD16Unorm,
+        vk::Format::eD16UnormS8Uint,
+    };
 
+    _vkDepthImageFormat = vk::Format::eUndefined;
+
+    for (const auto& format : potentialFormatList) {
+        vk::FormatProperties formatProperties = _vkPhysicalDevice.getFormatProperties(format);
+
+        if (formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
+            _vkDepthImageFormat = format;
+            break;
+        }
+    }
+
+    if (_vkDepthImageFormat == vk::Format::eUndefined) {
+        throw Exception("Unable to find suitable depth buffer image format");
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Depth Buffer Image Format: {}",
+        vk::to_string(_vkDepthImageFormat)
+    );
+
+    auto imageCreateInfo = vk::ImageCreateInfo()
+        .setImageType(vk::ImageType::e2D)
+        .setFormat(_vkDepthImageFormat)
+        .setExtent(vk::Extent3D(_vkSwapChainExtent, 1))
+        .setMipLevels(1)
+        .setArrayLayers(1)
+        .setTiling(vk::ImageTiling::eOptimal)
+        .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
+
+    VmaAllocationCreateInfo allocationCreateInfo = {
+        .flags = 0,
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+    };
+    
+    if (_vmaDepthImageAllocation) {
+        vmaFreeMemory(_vmaAllocator, _vmaDepthImageAllocation);
+        _vmaDepthImageAllocation = VK_NULL_HANDLE;
+    }
+    
+    _vkDevice.destroyImage(_vkDepthImage);
+
+    VkResult vkResult = vmaCreateImage(
+        _vmaAllocator,
+        reinterpret_cast<VkImageCreateInfo *>(&imageCreateInfo),
+        &allocationCreateInfo,
+        reinterpret_cast<VkImage *>(&_vkDepthImage),
+        &_vmaDepthImageAllocation,
+        nullptr
+    );
+
+    if (vkResult != VK_SUCCESS) {
+        throw Exception("vmaCreateImage() failed, unable to create depth buffer image");
+    }
+
+    _vkDevice.destroyImageView(_vkDepthImageView);
+
+    auto imageViewCreateInfo = vk::ImageViewCreateInfo()
+        .setImage(_vkDepthImage)
+        .setViewType(vk::ImageViewType::e2D)
+        .setFormat(_vkDepthImageFormat)
+        .setSubresourceRange({ vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1 });
+
+    _vkDepthImageView = _vkDevice.createImageView(imageViewCreateInfo);
+}
+
+void initUniformBuffers()
+{
+    auto bufferCreateInfo = vk::BufferCreateInfo()
+        .setSize(sizeof(ShaderGlobals))
+        .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
+        .setSharingMode(vk::SharingMode::eExclusive);
+
+    VmaAllocationCreateInfo allocationCreateInfo = {
+        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_CPU_TO_GPU
+    };
+
+    VmaAllocationInfo allocationInfo;
+
+    // vk::Buffer _uniformGlobalsBuffer = _vkDevice.createBuffer();
+}
+
+void initCommandBufferList()
+{
     _vkCommandPool = _vkDevice.createCommandPool(
         vk::CommandPoolCreateInfo({}, _vkGraphicsQueueFamilyIndex)
     );
@@ -584,35 +679,228 @@ void Init(String windowTitle, Vec2i windowSize)
             _backbufferCount
         )
     );
+}
 
-    ///
-    /// Init Swap Chain
-    ///
+void initSwapChain()
+{
+    vkDeviceWaitIdle(_vkDevice);
 
-    // initSwapChain();
+#pragma region Image Format
 
-    // ///
-    // /// Init Sync Objects
-    // ///
+    List<vk::SurfaceFormatKHR> formatList = _vkPhysicalDevice.getSurfaceFormatsKHR(_vkSurface);
+    assert(!formatList.empty());
 
-    // initSyncObjects();
+    auto imageFormat = formatList.front();
 
+    Log(RYME_ANCHOR, "Available Vulkan Surface Formats:");
+    for (const auto& format : formatList) {
+        bool isSRGB = (
+            format.format == vk::Format::eR8G8B8A8Srgb ||
+            format.format == vk::Format::eB8G8R8A8Srgb
+        );
+
+        if (isSRGB && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            imageFormat = format;
+        }
+
+        Log(RYME_ANCHOR, "\t{} {}",
+            vk::to_string(format.format),
+            vk::to_string(format.colorSpace)
+        );
+    }
+
+    _vkSwapChainImageFormat = imageFormat.format;
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {} {} ",
+        vk::to_string(imageFormat.format),
+        vk::to_string(imageFormat.colorSpace)
+    );
+
+#pragma endregion
+#pragma region Image Extent
+
+    vk::SurfaceCapabilitiesKHR surfaceCapabilities = _vkPhysicalDevice.getSurfaceCapabilitiesKHR(_vkSurface);
+
+    _vkSwapChainExtent = surfaceCapabilities.currentExtent;
+
+    if (_vkSwapChainExtent.width == UINT32_MAX) {
+        _vkSwapChainExtent.width = std::clamp(
+            static_cast<uint32_t>(_windowSize.x),
+            surfaceCapabilities.minImageExtent.width,
+            surfaceCapabilities.maxImageExtent.width
+        );
+
+        _vkSwapChainExtent.height = std::clamp(
+            static_cast<uint32_t>(_windowSize.y),
+            surfaceCapabilities.minImageExtent.height,
+            surfaceCapabilities.maxImageExtent.height
+        );
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Extent: {}x{}",
+        _vkSwapChainExtent.width,
+        _vkSwapChainExtent.height
+    );
+
+#pragma endregion
+#pragma region Present Mode
+
+    auto presentModeList = _vkPhysicalDevice.getSurfacePresentModesKHR(_vkSurface);
+
+    // FIFO is the only present mode required to be supported
+    vk::PresentModeKHR presentMode = vk::PresentModeKHR::eFifo;
+    
+    Log(RYME_ANCHOR, "Available Vulkan Present Modes:");
+    for (const auto& mode : presentModeList) {
+        if (mode == vk::PresentModeKHR::eMailbox) {
+            presentMode = mode;
+        }
+
+        Log(RYME_ANCHOR, "\t{}", vk::to_string(mode));
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Present Mode: {}", vk::to_string(presentMode));
+
+#pragma endregion
+#pragma region Swap Chain
+
+    vk::SwapchainKHR oldSwapChain = _vkSwapChain;
+
+    auto swapChainCreateInfo = vk::SwapchainCreateInfoKHR()
+        .setSurface(_vkSurface)
+        .setMinImageCount(surfaceCapabilities.minImageCount)
+        .setImageFormat(imageFormat.format)
+        .setImageColorSpace(imageFormat.colorSpace)
+        .setImageExtent(_vkSwapChainExtent)
+        .setImageArrayLayers(1) // Always 1 for 3D applications
+        .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
+        .setPreTransform(surfaceCapabilities.currentTransform)
+        .setPresentMode(presentMode)
+        .setClipped(true)
+        .setOldSwapchain(oldSwapChain);
+        
+    if (surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::ePreMultiplied) {
+        swapChainCreateInfo.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::ePreMultiplied);
+    }
+    else if (surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::ePostMultiplied) {
+        swapChainCreateInfo.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::ePostMultiplied);
+    }
+    else if (surfaceCapabilities.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eInherit) {
+        swapChainCreateInfo.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eInherit);
+    }
+    
+    Array<uint32_t, 2> queueFamilyIndexList = {
+        _vkGraphicsQueueFamilyIndex,
+        _vkPresentQueueFamilyIndex
+    };
+
+    if (_vkGraphicsQueueFamilyIndex != _vkPresentQueueFamilyIndex) {
+        swapChainCreateInfo.setImageSharingMode(vk::SharingMode::eConcurrent);
+        swapChainCreateInfo.setQueueFamilyIndices(queueFamilyIndexList);
+    }
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Image Count: {}",
+        swapChainCreateInfo.minImageCount
+    );
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Pre-Transform: {}",
+        vk::to_string(swapChainCreateInfo.preTransform)
+    );
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Composite Alpha: {}",
+        vk::to_string(swapChainCreateInfo.compositeAlpha)
+    );
+
+    Log(RYME_ANCHOR, "Vulkan Swap Chain Sharing Mode: {}",
+        vk::to_string(swapChainCreateInfo.imageSharingMode)
+    );
+
+    _vkSwapChain = _vkDevice.createSwapchainKHR(swapChainCreateInfo);
+
+    _vkDevice.destroySwapchainKHR(oldSwapChain);
+
+#pragma endregion
+#pragma region Image List
+
+    _vkSwapChainImageList = _vkDevice.getSwapchainImagesKHR(_vkSwapChain);
+
+    for (auto& imageView : _vkSwapChainImageViewList) {
+        _vkDevice.destroyImageView(imageView);
+    }
+
+    _vkSwapChainImageViewList.clear();
+    _vkSwapChainImageViewList.reserve(_vkSwapChainImageList.size());
+
+    auto imageViewCreateInfo = vk::ImageViewCreateInfo()
+        .setViewType(vk::ImageViewType::e2D)
+        .setFormat(_vkSwapChainImageFormat)
+        .setSubresourceRange({ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 });
+
+    for (const auto& image : _vkSwapChainImageList) {
+        imageViewCreateInfo.setImage(image);
+        _vkSwapChainImageViewList.push_back(
+            _vkDevice.createImageView(imageViewCreateInfo)
+        );
+    }
+
+#pragma endregion
+
+    initDepthBuffer();
+    // initRenderPass();
+    // initPipeline();
+    // initFramebufferList();
+    initCommandBufferList();
+
+}
+
+RYME_API
+void Init(String windowTitle, Vec2i windowSize)
+{
+    RYME_BENCHMARK_START();
+
+    _windowSize = windowSize;
+    _windowTitle = windowTitle;
+    
+    SDL_bool sdlResult;
+    VkResult vkResult;
+    
+    initWindow();
+    initInstance();
+    initSurface();
+    initDevice();
+    initAllocator();
+
+    initSwapChain();
+    
     RYME_BENCHMARK_END();
 }
 
 RYME_API
 void Term()
 {
-    // termSyncObjects();
-    // termSwapChain();
-
     _vkDevice.freeCommandBuffers(_vkCommandPool, _vkCommandBufferList);
 
     _vkDevice.destroyCommandPool(_vkCommandPool);
 
+    _vkDevice.destroyImageView(_vkDepthImageView);
+    
+    _vkDevice.destroyImage(_vkDepthImage);
+
+    if (_vmaDepthImageAllocation) {
+        vmaFreeMemory(_vmaAllocator, _vmaDepthImageAllocation);
+        _vmaDepthImageAllocation = VK_NULL_HANDLE;
+    }
+
+    for (auto& imageView : _vkSwapChainImageViewList) {
+        _vkDevice.destroyImageView(imageView);
+    }
+
+    // The vk::Image's in _vkSwapChainImageList are destroyed as well
+    _vkDevice.destroySwapchainKHR(_vkSwapChain);
+
     if (_vmaAllocator) {
         vmaDestroyAllocator(_vmaAllocator);
-        _vmaAllocator = nullptr;
+        _vmaAllocator = VK_NULL_HANDLE;
     }
 
     _vkDevice.destroy();

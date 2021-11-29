@@ -4,7 +4,7 @@
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
 
-#include <fmt/core.h>
+#include <Ryme/ThirdParty/fmt.hpp>
 
 #include <stdexcept>
 #include <utility>

@@ -4,12 +4,9 @@
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
 
-#include <fmt/format.h>
-
-#include <pybind11/embed.h>
-namespace py = pybind11;
-
-#include <vulkan/vulkan.hpp>
+#include <Ryme/ThirdParty/fmt.hpp>
+#include <Ryme/ThirdParty/python.hpp>
+#include <Ryme/ThirdParty/vulkan.hpp>
 
 #include <regex>
 #include <tuple>

@@ -5,10 +5,8 @@
 #include <Ryme/String.hpp>
 #include <Ryme/Containers.hpp>
 
-#include <fmt/format.h>
-
-#include <pybind11/embed.h>
-namespace py = pybind11;
+#include <Ryme/ThirdParty/fmt.hpp>
+#include <Ryme/ThirdParty/python.hpp>
 
 namespace ryme {
 
@@ -180,6 +178,9 @@ private:
 
 RYME_API
 Path GetCurrentPath();
+
+RYME_API
+List<Path> GetAssetPathList();
 
 } // namespace ryme
 

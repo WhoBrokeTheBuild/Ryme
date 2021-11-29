@@ -4,10 +4,8 @@
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
 
-#include <fmt/format.h>
-
-#include <pybind11/embed.h>
-namespace py = pybind11;
+#include <Ryme/ThirdParty/fmt.hpp>
+#include <Ryme/ThirdParty/python.hpp>
 
 namespace ryme {
 

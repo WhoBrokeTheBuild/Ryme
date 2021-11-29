@@ -1,0 +1,6 @@
+
+RYME_DISABLE_WARNINGS()
+
+#include <SDL.h>
+
+RYME_ENABLE_WARNINGS()

@@ -3,16 +3,8 @@
 
 #include <Ryme/Config.hpp>
 
-#define GLM_ENABLE_EXPERIMENTAL
-#define GLM_FORCE_RIGHT_HANDED
-#define GLM_FORCE_RADIANS
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
-
-#include <glm/gtc/type_ptr.hpp>
-
-#include <pybind11/embed.h>
-namespace py = pybind11;
+#include <Ryme/ThirdParty/glm.hpp>
+#include <Ryme/ThirdParty/python.hpp>
 
 #include <limits>
 

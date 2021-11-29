@@ -79,6 +79,7 @@ void Path::ScriptInit(py::module m)
             });
 
     m.def("GetCurrentPath", GetCurrentPath);
+    m.def("GetAssetPathList", GetAssetPathList);
 }
 
 List<Path> Path::ParsePathList(const String& str)
@@ -258,6 +259,21 @@ Path GetCurrentPath()
 #endif
     
     return Path();
+}
+
+List<Path> _assetPathList;
+
+RYME_API
+List<Path> GetAssetPathList()
+{
+    if (_assetPathList.empty()) {
+        char * env = getenv("RYME_ASSET_PATH");
+        if (env) {
+            _assetPathList = Path::ParsePathList(env);
+        }
+    }
+
+    return _assetPathList;
 }
 
 } // namespace ryme

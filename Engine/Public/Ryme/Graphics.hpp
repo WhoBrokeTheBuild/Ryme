@@ -5,18 +5,9 @@
 #include <Ryme/Math.hpp>
 #include <Ryme/String.hpp>
 
-#include <pybind11/embed.h>
-namespace py = pybind11;
-
-#include <SDL.h>
-
-#include <vulkan/vulkan.hpp>
-
-RYME_DISABLE_WARNINGS()
-
-    #include <vk_mem_alloc.h>
-
-RYME_ENABLE_WARNINGS()
+#include <Ryme/ThirdParty/python.hpp>
+#include <Ryme/ThirdParty/SDL.hpp>
+#include <Ryme/ThirdParty/vulkan.hpp>
 
 namespace ryme {
 
@@ -45,6 +36,11 @@ void SetWindowSize(Vec2i windowSize);
 
 RYME_API
 Vec2i GetWindowSize();
+
+
+vk::Instance GetVkInstance();
+
+vk::Device GetVkDevice();
 
 } // namespace Graphics
 

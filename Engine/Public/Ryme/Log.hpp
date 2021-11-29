@@ -5,14 +5,10 @@
 #include <Ryme/Path.hpp>
 #include <Ryme/String.hpp>
 
+#include <Ryme/ThirdParty/fmt.hpp>
+
 #include <chrono>
 #include <utility>
-
-#include <fmt/format.h>
-#include <fmt/ranges.h>
-#include <fmt/chrono.h>
-#include <fmt/os.h>
-#include <fmt/color.h>
 
 namespace ryme {
 
