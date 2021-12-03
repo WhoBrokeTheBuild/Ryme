@@ -25,7 +25,7 @@ String FormatBytesHumanReadable(uint64_t bytes)
         temp = bytes;
     }
 
-    return fmt::format("{:.3} {}", temp, suffixList[suffixIndex]);
+    return fmt::format("{:.3f} {}", temp, suffixList[suffixIndex]);
 }
 
 } // namespace ryme

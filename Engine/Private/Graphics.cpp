@@ -1,5 +1,7 @@
 #include <Ryme/Graphics.hpp>
 #include <Ryme/Ryme.hpp>
+#include <Ryme/Buffer.hpp>
+#include <Ryme/Shader.hpp>
 
 #include <Ryme/ShaderGlobals.hpp>
 #include <Ryme/ShaderTransform.hpp>
@@ -67,7 +69,7 @@ vk::Device _vkDevice;
 
 // Vulkan Memory Allocator
 
-VmaAllocator _vmaAllocator = VK_NULL_HANDLE;
+vma::Allocator _vmaAllocator;
 
 // Vulkan Command Buffer
 
@@ -95,7 +97,7 @@ vk::Format _vkDepthImageFormat;
 
 vk::Image _vkDepthImage;
 
-VmaAllocation _vmaDepthImageAllocation = VK_NULL_HANDLE;
+vma::Allocation _vmaDepthImageAllocation;
 
 vk::ImageView _vkDepthImageView;
 
@@ -128,6 +130,11 @@ vk::Instance GetVkInstance()
 vk::Device GetVkDevice()
 {
     return _vkDevice;
+}
+
+vma::Allocator GetVmaAllocator()
+{
+    return _vmaAllocator;
 }
 
 void initSwapChain();
@@ -541,38 +548,47 @@ void initDevice()
 
 void initAllocator()
 {
-    VmaAllocatorCreateFlags allocatorCreateFlags = 0;
+    vma::AllocatorCreateFlags allocatorCreateFlags;
 
     #if defined(VK_EXT_memory_budget)
         
         if (hasDeviceExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
-            allocatorCreateFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+            allocatorCreateFlags |= vma::AllocatorCreateFlagBits::eExtMemoryBudget;
         }
 
     #endif
 
-    VmaAllocatorCreateInfo allocatorCreateInfo = {
-        .flags = allocatorCreateFlags,
-        .physicalDevice = _vkPhysicalDevice,
-        .device = _vkDevice,
-        .frameInUseCount = _backbufferCount, // ?
-        .instance = _vkInstance,
-        .vulkanApiVersion = VK_API_VERSION_1_1,
-    };
+    auto allocatorCreateInfo = vma::AllocatorCreateInfo()
+        .setFlags(allocatorCreateFlags)
+        .setInstance(_vkInstance)
+        .setPhysicalDevice(_vkPhysicalDevice)
+        .setDevice(_vkDevice)
+        .setVulkanApiVersion(VK_API_VERSION_1_1);
 
-    VkResult vkResult = vmaCreateAllocator(&allocatorCreateInfo, &_vmaAllocator);
+    _vmaAllocator = vma::createAllocator(allocatorCreateInfo);
 
-    if (vkResult != VK_SUCCESS) {
-        throw Exception("vmaCreateAllocator() failed");
+    auto memoryProperties = _vkPhysicalDevice.getMemoryProperties();
+
+    List<vma::Budget> budgetList(memoryProperties.memoryHeapCount);
+    _vmaAllocator.getBudget(budgetList.data());
+
+    for (uint32_t heap = 0; heap < memoryProperties.memoryHeapCount; ++heap) {
+        Log(RYME_ANCHOR, "Vulkan Memory Heap #{}: {}",
+            heap,
+            FormatBytesHumanReadable(budgetList[heap].budget)
+        );
+
+        for (uint32_t type = 0; type < memoryProperties.memoryTypeCount; ++type) {
+            if (memoryProperties.memoryTypes[type].heapIndex == heap) {
+                if (memoryProperties.memoryTypes[type].propertyFlags) {
+                    Log(RYME_ANCHOR, "\tType #{}: {}",
+                        type,
+                        vk::to_string(memoryProperties.memoryTypes[type].propertyFlags)
+                    );
+                }
+            }
+        }
     }
-
-    VmaBudget vmaBudget;
-    vmaGetBudget(_vmaAllocator, &vmaBudget);
-
-    Log(RYME_ANCHOR, "Vulkan Memory Available: {} ({} Bytes)",
-        FormatBytesHumanReadable(vmaBudget.budget),
-        vmaBudget.budget
-    );
 }
 
 void initDepthBuffer()
@@ -603,6 +619,10 @@ void initDepthBuffer()
     Log(RYME_ANCHOR, "Vulkan Depth Buffer Image Format: {}",
         vk::to_string(_vkDepthImageFormat)
     );
+    
+    _vmaAllocator.freeMemory(_vmaDepthImageAllocation);
+
+    _vkDevice.destroyImage(_vkDepthImage);
 
     auto imageCreateInfo = vk::ImageCreateInfo()
         .setImageType(vk::ImageType::e2D)
@@ -613,30 +633,10 @@ void initDepthBuffer()
         .setTiling(vk::ImageTiling::eOptimal)
         .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
 
-    VmaAllocationCreateInfo allocationCreateInfo = {
-        .flags = 0,
-        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-    };
+    auto allocationCreateInfo = vma::AllocationCreateInfo()
+        .setUsage(vma::MemoryUsage::eGpuOnly);
     
-    if (_vmaDepthImageAllocation) {
-        vmaFreeMemory(_vmaAllocator, _vmaDepthImageAllocation);
-        _vmaDepthImageAllocation = VK_NULL_HANDLE;
-    }
-    
-    _vkDevice.destroyImage(_vkDepthImage);
-
-    VkResult vkResult = vmaCreateImage(
-        _vmaAllocator,
-        reinterpret_cast<VkImageCreateInfo *>(&imageCreateInfo),
-        &allocationCreateInfo,
-        reinterpret_cast<VkImage *>(&_vkDepthImage),
-        &_vmaDepthImageAllocation,
-        nullptr
-    );
-
-    if (vkResult != VK_SUCCESS) {
-        throw Exception("vmaCreateImage() failed, unable to create depth buffer image");
-    }
+    std::tie(_vkDepthImage, _vmaDepthImageAllocation) = _vmaAllocator.createImage(imageCreateInfo, allocationCreateInfo);
 
     _vkDevice.destroyImageView(_vkDepthImageView);
 
@@ -651,23 +651,22 @@ void initDepthBuffer()
 
 void initUniformBuffers()
 {
-    auto bufferCreateInfo = vk::BufferCreateInfo()
-        .setSize(sizeof(ShaderGlobals))
-        .setUsage(vk::BufferUsageFlagBits::eUniformBuffer)
-        .setSharingMode(vk::SharingMode::eExclusive);
+    Buffer shaderGlobalsBuffer;
+    shaderGlobalsBuffer.Create(
+        sizeof(ShaderGlobals),
+        nullptr,
+        vk::BufferUsageFlagBits::eUniformBuffer,
+        vma::MemoryUsage::eCpuToGpu
+    );
 
-    VmaAllocationCreateInfo allocationCreateInfo = {
-        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_CPU_TO_GPU
-    };
-
-    VmaAllocationInfo allocationInfo;
-
-    // vk::Buffer _uniformGlobalsBuffer = _vkDevice.createBuffer();
 }
 
 void initCommandBufferList()
 {
+    _vkDevice.freeCommandBuffers(_vkCommandPool, _vkCommandBufferList);
+
+    _vkDevice.destroyCommandPool(_vkCommandPool);
+
     _vkCommandPool = _vkDevice.createCommandPool(
         vk::CommandPoolCreateInfo({}, _vkGraphicsQueueFamilyIndex)
     );
@@ -871,6 +870,7 @@ void Init(String windowTitle, Vec2i windowSize)
     initAllocator();
 
     initSwapChain();
+    initSwapChain(); // Test swap chain recreation
     
     RYME_BENCHMARK_END();
 }
@@ -878,6 +878,8 @@ void Init(String windowTitle, Vec2i windowSize)
 RYME_API
 void Term()
 {
+    RYME_BENCHMARK_START();
+
     _vkDevice.freeCommandBuffers(_vkCommandPool, _vkCommandBufferList);
 
     _vkDevice.destroyCommandPool(_vkCommandPool);
@@ -886,10 +888,7 @@ void Term()
     
     _vkDevice.destroyImage(_vkDepthImage);
 
-    if (_vmaDepthImageAllocation) {
-        vmaFreeMemory(_vmaAllocator, _vmaDepthImageAllocation);
-        _vmaDepthImageAllocation = VK_NULL_HANDLE;
-    }
+    _vmaAllocator.freeMemory(_vmaDepthImageAllocation);
 
     for (auto& imageView : _vkSwapChainImageViewList) {
         _vkDevice.destroyImageView(imageView);
@@ -898,10 +897,7 @@ void Term()
     // The vk::Image's in _vkSwapChainImageList are destroyed as well
     _vkDevice.destroySwapchainKHR(_vkSwapChain);
 
-    if (_vmaAllocator) {
-        vmaDestroyAllocator(_vmaAllocator);
-        _vmaAllocator = VK_NULL_HANDLE;
-    }
+    _vmaAllocator.destroy();
 
     _vkDevice.destroy();
 
@@ -917,6 +913,8 @@ void Term()
     }
 
     SDL_Quit();
+
+    RYME_BENCHMARK_END();
 }
 
 RYME_API
@@ -1612,6 +1610,32 @@ Vec2i GetWindowSize()
 //     }
 // }
 
+void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::BufferCopy region)
+{
+    auto allocateInfo = vk::CommandBufferAllocateInfo()
+        .setCommandPool(_vkCommandPool)
+        .setLevel(vk::CommandBufferLevel::ePrimary)
+        .setCommandBufferCount(1);
+
+    auto commandBufferList = _vkDevice.allocateCommandBuffers(allocateInfo);
+    auto commandBuffer = commandBufferList.front();
+
+    auto beginInfo = vk::CommandBufferBeginInfo()
+        .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+    commandBuffer.begin(beginInfo);
+
+    commandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &region);
+
+    commandBuffer.end();
+
+    auto submitInfo = vk::SubmitInfo()
+        .setCommandBuffers(commandBufferList);
+
+    _vkGraphicsQueue.submit({ submitInfo }, nullptr);
+
+    _vkDevice.freeCommandBuffers(_vkCommandPool, commandBufferList);
+}
 
 } // namespace Graphics
 
