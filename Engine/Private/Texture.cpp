@@ -81,7 +81,7 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
     std::tie(_vkImage, _vmaAllocation) = Graphics::GetVmaAllocator()
         .createImage(imageCreateInfo, allocationCreateInfo);
 
-    auto imageSubresource = vk::ImageSubresourceLayers()
+    auto subresourceLayers = vk::ImageSubresourceLayers()
         .setAspectMask(vk::ImageAspectFlagBits::eColor)
         .setMipLevel(0)
         .setBaseArrayLayer(0)
@@ -91,7 +91,7 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
         .setBufferOffset(0)
         .setBufferRowLength(0)
         .setBufferImageHeight(0)
-        .setImageSubresource(imageSubresource)
+        .setImageSubresource(subresourceLayers)
         .setImageOffset(vk::Offset3D(0, 0, 0))
         .setImageExtent(vk::Extent3D(width, height, 1));
 
@@ -100,6 +100,21 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
     vmaAllocator.freeMemory(stagingAllocation);
 
     vkDevice.destroyBuffer(stagingBuffer);
+
+    auto subresourceRange = vk::ImageSubresourceRange()
+        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+        .setBaseMipLevel(0)
+        .setLevelCount(1)
+        .setBaseArrayLayer(0)
+        .setLayerCount(1);
+
+    auto imageViewCreateInfo = vk::ImageViewCreateInfo()
+        .setImage(_vkImage)
+        .setViewType(vk::ImageViewType::e2D)
+        .setFormat(vk::Format::eR8G8B8A8Srgb)
+        .setSubresourceRange(subresourceRange);
+
+    _vkImageView = vkDevice.createImageView(imageViewCreateInfo);
 
     _path = fullPath;
     
@@ -113,6 +128,8 @@ void Texture::Free()
 {
     auto& vkDevice = Graphics::GetVkDevice();
     auto& vmaAllocator = Graphics::GetVmaAllocator();
+
+    vkDevice.destroyImageView(_vkImageView);
 
     vkDevice.destroyImage(_vkImage);
 

@@ -1652,9 +1652,9 @@ void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region
     auto subresourceRange = vk::ImageSubresourceRange()
         .setAspectMask(region.imageSubresource.aspectMask)
         .setBaseMipLevel(0)
-        .setLevelCount(1)
-        .setBaseArrayLayer(0)
-        .setLayerCount(1);
+        .setLevelCount(region.imageSubresource.mipLevel + 1)
+        .setBaseArrayLayer(region.imageSubresource.baseArrayLayer)
+        .setLayerCount(region.imageSubresource.layerCount);
     
     auto barrier = vk::ImageMemoryBarrier()
         .setOldLayout(vk::ImageLayout::eUndefined)
@@ -1681,7 +1681,12 @@ void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region
         1, &barrier
     );
 
-    commandBuffer.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+    commandBuffer.copyBufferToImage(
+        src,
+        dst,
+        vk::ImageLayout::eTransferDstOptimal,
+        1, &region
+    );
 
     commandBuffer.end();
 
