@@ -14,7 +14,7 @@ public:
 
     virtual void Free() { }
 
-    virtual bool IsLoaded()
+    virtual bool IsLoaded() const
     {
         return _isLoaded;
     }
@@ -24,7 +24,7 @@ public:
         return true;
     }
 
-    virtual bool CanReload()
+    virtual bool CanReload() const
     {
         return false;
     }
@@ -40,6 +40,8 @@ public:
     }
 
 protected:
+
+    unsigned _references = 0;
 
     bool _isLoaded = false;
 

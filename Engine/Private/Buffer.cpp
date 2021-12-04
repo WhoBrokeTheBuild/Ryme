@@ -17,8 +17,8 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bu
     _vkBufferUsage = bufferUsage;
     _vmaMemoryUsage = memoryUsage;
 
-    auto vkDevice = Graphics::GetVkDevice();
-    auto vmaAllocator = Graphics::GetVmaAllocator();
+    auto& vkDevice = Graphics::GetVkDevice();
+    auto& vmaAllocator = Graphics::GetVmaAllocator();
 
     // If we are uploading to a GPU only buffer, we need to use a staging buffer
     if (_vmaMemoryUsage == vma::MemoryUsage::eGpuOnly) {
@@ -94,20 +94,15 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bu
 
 void Buffer::Destroy()
 {
-    auto vkDevice = Graphics::GetVkDevice();
-    auto vmaAllocator = Graphics::GetVmaAllocator();
+    auto& vkDevice = Graphics::GetVkDevice();
+    auto& vmaAllocator = Graphics::GetVmaAllocator();
 
-    if (_mappedBufferMemory) {
-        vmaUnmapMemory(vmaAllocator, _vmaAllocation);
-        _mappedBufferMemory = nullptr;
-    }
+    vmaAllocator.unmapMemory(_vmaAllocation);
+    _mappedBufferMemory = nullptr;
 
     vkDevice.destroyBuffer(_vkBuffer);
 
-    if (_vmaAllocation) {
-        vmaFreeMemory(vmaAllocator, _vmaAllocation);
-        _vmaAllocation = nullptr;
-    }
+    vmaAllocator.freeMemory(_vmaAllocation);
 
     _size = 0;
 }

@@ -122,17 +122,17 @@ List<VkFence> _vkInFlightFenceList;
 List<VkFence> _vkImageInFlightList;
 
 // TODO: Move?
-vk::Instance GetVkInstance()
+vk::Instance& GetVkInstance()
 {
     return _vkInstance;
 }
 
-vk::Device GetVkDevice()
+vk::Device& GetVkDevice()
 {
     return _vkDevice;
 }
 
-vma::Allocator GetVmaAllocator()
+vma::Allocator& GetVmaAllocator()
 {
     return _vmaAllocator;
 }
@@ -1633,6 +1633,64 @@ void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::BufferCopy regio
         .setCommandBuffers(commandBufferList);
 
     _vkGraphicsQueue.submit({ submitInfo }, nullptr);
+
+    _vkGraphicsQueue.waitIdle();
+
+    _vkDevice.freeCommandBuffers(_vkCommandPool, commandBufferList);
+}
+
+void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region)
+{
+    auto allocateInfo = vk::CommandBufferAllocateInfo()
+        .setCommandPool(_vkCommandPool)
+        .setLevel(vk::CommandBufferLevel::ePrimary)
+        .setCommandBufferCount(1);
+
+    auto commandBufferList = _vkDevice.allocateCommandBuffers(allocateInfo);
+    auto commandBuffer = commandBufferList.front();
+
+    auto subresourceRange = vk::ImageSubresourceRange()
+        .setAspectMask(region.imageSubresource.aspectMask)
+        .setBaseMipLevel(0)
+        .setLevelCount(1)
+        .setBaseArrayLayer(0)
+        .setLayerCount(1);
+    
+    auto barrier = vk::ImageMemoryBarrier()
+        .setOldLayout(vk::ImageLayout::eUndefined)
+        .setNewLayout(vk::ImageLayout::eTransferDstOptimal)
+        .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+        .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+        .setImage(dst)
+        .setSubresourceRange(subresourceRange)
+        .setSrcAccessMask({})
+        .setDstAccessMask(vk::AccessFlagBits::eTransferWrite);
+
+    auto beginInfo = vk::CommandBufferBeginInfo()
+        .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+    commandBuffer.begin(beginInfo);
+
+    // TODO: Investigate
+    commandBuffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eTransfer,
+        {},
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    commandBuffer.copyBufferToImage(src, dst, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+
+    commandBuffer.end();
+
+    auto submitInfo = vk::SubmitInfo()
+        .setCommandBuffers(commandBufferList);
+
+    _vkGraphicsQueue.submit({ submitInfo }, nullptr);
+
+    _vkGraphicsQueue.waitIdle();
 
     _vkDevice.freeCommandBuffers(_vkCommandPool, commandBufferList);
 }

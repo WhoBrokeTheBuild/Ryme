@@ -46,7 +46,7 @@ MACRO(COMPILE_SHADER_LIST _include_path _input_list _output_list)
             
             SET(_include_flags "")
             FOREACH(_path ${_include_path})
-                SET(_include_flags ${_include_flags} -I"${_path}" -I"${_path}/Shaders/")
+                SET(_include_flags ${_include_flags} -I"${_path}")
             ENDFOREACH()
 
             SET(_output "${_output_path}/${_input_name}.spv")

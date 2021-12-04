@@ -22,6 +22,10 @@ public:
 
     bool Reload() override;
 
+    bool CanReload() const override {
+        return true;
+    }
+
 private:
 
     bool LoadSPV(const Path& path, bool search);

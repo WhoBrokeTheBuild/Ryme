@@ -52,7 +52,7 @@ bool Shader::LoadSPV(const Path& path, bool search)
 
     if (search) {
         for (const auto& assetPath : GetAssetPathList()) {
-            fullPath = assetPath / "Shaders" / path;
+            fullPath = assetPath / path;
 
             file.open(fullPath, std::ios::binary);
             if (file.is_open()) {

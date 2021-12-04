@@ -37,13 +37,20 @@ void SetWindowSize(Vec2i windowSize);
 RYME_API
 Vec2i GetWindowSize();
 
-vk::Instance GetVkInstance();
+RYME_API
+vk::Instance& GetVkInstance();
 
-vk::Device GetVkDevice();
+RYME_API
+vk::Device& GetVkDevice();
 
-vma::Allocator GetVmaAllocator();
+RYME_API
+vma::Allocator& GetVmaAllocator();
 
+RYME_API
 void CopyBuffer(vk::Buffer src, vk::Buffer dst, vk::BufferCopy region);
+
+RYME_API
+void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region);
 
 } // namespace Graphics
 

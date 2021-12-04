@@ -55,7 +55,7 @@ LIST(PREPEND RYME_ASSET_PATH
 FILE(
     GLOB_RECURSE
     _shader_input_list
-    "Assets/Shaders/*.glsl"
+    "Assets/*.glsl"
 )
 
 INCLUDE(CompileShaderList)

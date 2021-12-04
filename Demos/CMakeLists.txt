@@ -42,7 +42,7 @@ MACRO(DEFINE_DEMO _target)
     FILE(
         GLOB_RECURSE
         _shader_input_list
-        "Assets/Shaders/*.glsl"
+        "Assets/*.glsl"
     )
 
     INCLUDE(CompileShaderList)
