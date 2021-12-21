@@ -3,6 +3,7 @@
 
 #include <Ryme/Config.hpp>
 
+#include <algorithm>
 #include <array>
 #include <deque>
 #include <set>
@@ -29,6 +30,13 @@ using Map = std::unordered_map<K, V>;
 
 template <class T>
 using List = std::vector<T>;
+
+template <class T>
+inline bool ListContains(const List<T>& list, const T& value)
+{
+    auto it = std::find(std::begin(list), std::end(list), value);
+    return (it != list.end());
+}
 
 } // namespace ryme
 

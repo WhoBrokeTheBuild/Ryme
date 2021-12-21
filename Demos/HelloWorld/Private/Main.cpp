@@ -20,7 +20,7 @@ int main(int argc, char ** argv)
         Term();
     }
     catch (const std::exception& e) {
-        Log(RYME_ANCHOR, "Exception {}", e.what());
+        Log("Exception", "{}", e.what());
     }
 
     fflush(stdout);

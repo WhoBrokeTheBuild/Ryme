@@ -16,6 +16,12 @@ namespace ryme {
 ///
 namespace Graphics {
 
+extern vk::Instance Instance;
+
+extern vk::Device Device;
+
+extern vma::Allocator Allocator;
+
 RYME_API
 void ScriptInit(py::module);
 
@@ -36,15 +42,6 @@ void SetWindowSize(Vec2i windowSize);
 
 RYME_API
 Vec2i GetWindowSize();
-
-RYME_API
-vk::Instance& GetVkInstance();
-
-RYME_API
-vk::Device& GetVkDevice();
-
-RYME_API
-vma::Allocator& GetVmaAllocator();
 
 RYME_API
 void CopyBuffer(vk::Buffer src, vk::Buffer dst, vk::BufferCopy region);

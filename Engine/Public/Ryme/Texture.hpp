@@ -13,9 +13,9 @@ class RYME_API Texture : public Asset
 {
 public:
 
-    Texture(const Path& path, bool search = true);
+    Texture(const Path& path, vk::SamplerCreateInfo samplerCreateInfo = {}, bool search = true);
 
-    bool LoadFromFile(const Path& path, bool search = true);
+    bool LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreateInfo = {}, bool search = true);
 
     void Free() override;
 
@@ -25,19 +25,23 @@ public:
         return true;
     }
 
-    inline vk::ImageView& GetVkImageView() {
-        return _vkImageView;
+    inline vk::ImageView& GetImageView() {
+        return _imageView;
     }
 
 private:
 
     Path _path;
 
-    vk::Image _vkImage;
+    vk::SamplerCreateInfo _samplerCreateInfo;
 
-    vma::Allocation _vmaAllocation;
+    vk::Image _image;
 
-    vk::ImageView _vkImageView;
+    vma::Allocation _allocation;
+
+    vk::ImageView _imageView;
+
+    vk::Sampler _sampler;
 
 }; // class Texture
 

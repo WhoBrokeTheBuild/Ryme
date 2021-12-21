@@ -23,7 +23,7 @@ namespace Graphics {
 
 // Window
 
-SDL_Window * _sdlWindow = nullptr;
+SDL_Window * _window = nullptr;
 
 Vec2i _windowSize;
 
@@ -31,118 +31,97 @@ String _windowTitle;
 
 // Vulkan Instance
 
-List<vk::LayerProperties> _vkAvailableInstanceLayerList;
+List<vk::LayerProperties> _availableInstanceLayerList;
 
-List<vk::ExtensionProperties> _vkAvailableInstanceExtensionList;
+List<vk::ExtensionProperties> _availableInstanceExtensionList;
 
-vk::Instance _vkInstance;
+vk::Instance Instance;
 
-vk::DebugUtilsMessengerEXT _vkDebugUtilsMessenger;
+vk::DebugUtilsMessengerEXT _debugUtilsMessenger;
 
 // Vulkan Surface
 
-vk::SurfaceKHR _vkSurface;
+vk::SurfaceKHR _surface;
 
 // Vulkan Physical Device
 
-vk::PhysicalDeviceProperties _vkPhysicalDeviceProperties;
+vk::PhysicalDeviceProperties _physicalDeviceProperties;
 
-vk::PhysicalDeviceFeatures _vkPhysicalDeviceFeatures;
+vk::PhysicalDeviceFeatures _physicalDeviceFeatures;
 
-vk::PhysicalDevice _vkPhysicalDevice;
+vk::PhysicalDevice _physicalDevice;
 
 // Vulkan Queues
 
-uint32_t _vkGraphicsQueueFamilyIndex;
+uint32_t _graphicsQueueFamilyIndex;
 
-uint32_t _vkPresentQueueFamilyIndex;
+uint32_t _presentQueueFamilyIndex;
 
-vk::Queue _vkGraphicsQueue;
+vk::Queue _graphicsQueue;
 
-vk::Queue _vkPresentQueue;
+vk::Queue _presentQueue;
 
 // Vulkan Logical Device
 
-List<vk::ExtensionProperties> _vkAvailableDeviceExtensionList;
+List<vk::ExtensionProperties> _availableDeviceExtensionList;
 
-vk::Device _vkDevice;
+vk::Device Device;
 
 // Vulkan Memory Allocator
 
-vma::Allocator _vmaAllocator;
+vma::Allocator Allocator;
 
 // Vulkan Command Buffer
 
-vk::CommandPool _vkCommandPool;
+vk::CommandPool _commandPool;
 
-List<vk::CommandBuffer> _vkCommandBufferList;
+List<vk::CommandBuffer> _commandBufferList;
 
 // Swap Chain
 
-vk::Extent2D _vkSwapChainExtent;
+vk::Extent2D _swapChainExtent;
 
-uint32_t _backbufferCount = 2;
+vk::SwapchainKHR _swapChain;
 
-vk::SwapchainKHR _vkSwapChain;
+vk::Format _swapChainImageFormat;
 
-vk::Format _vkSwapChainImageFormat;
+List<vk::Image> _swapChainImageList;
 
-List<vk::Image> _vkSwapChainImageList;
-
-List<vk::ImageView> _vkSwapChainImageViewList;
+List<vk::ImageView> _swapChainImageViewList;
 
 // Depth Buffer
 
-vk::Format _vkDepthImageFormat;
+vk::Format _depthImageFormat;
 
-vk::Image _vkDepthImage;
+vk::Image _depthImage;
 
-vma::Allocation _vmaDepthImageAllocation;
+vma::Allocation _depthImageAllocation;
 
-vk::ImageView _vkDepthImageView;
+vk::ImageView _depthImageView;
 
 // Render Pass
 
-VkRenderPass _vkRenderPass = VK_NULL_HANDLE;
+VkRenderPass _renderPass = VK_NULL_HANDLE;
 
 // Descriptor Pool
 
-VkDescriptorPool _vkDescriptorPool = VK_NULL_HANDLE;
+VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
 
-List<VkDescriptorSetLayout> _vkDescriptorSetLayoutList;
+List<VkDescriptorSetLayout> _descriptorSetLayoutList;
 
 // Sync Objects
 
-List<VkSemaphore> _vkImageAvailableSemaphoreList;
+List<VkSemaphore> _imageAvailableSemaphoreList;
 
-List<VkSemaphore> _vkRenderingFinishedSemaphoreList;
+List<VkSemaphore> _renderingFinishedSemaphoreList;
 
-List<VkFence> _vkInFlightFenceList;
+List<VkFence> _inFlightFenceList;
 
-List<VkFence> _vkImageInFlightList;
-
-// TODO: Move?
-vk::Instance& GetVkInstance()
-{
-    return _vkInstance;
-}
-
-vk::Device& GetVkDevice()
-{
-    return _vkDevice;
-}
-
-vma::Allocator& GetVmaAllocator()
-{
-    return _vmaAllocator;
-}
-
-void initSwapChain();
-void termSwapChain();
+List<VkFence> _imageInFlightList;
 
 inline bool hasInstanceLayer(StringView name)
 {
-    for (const auto& layer : _vkAvailableInstanceLayerList) {
+    for (const auto& layer : _availableInstanceLayerList) {
         if (layer.layerName == name) {
             return true;
         }
@@ -153,7 +132,7 @@ inline bool hasInstanceLayer(StringView name)
 
 inline bool hasInstanceExtension(StringView name)
 {
-    for (const auto& extension : _vkAvailableInstanceExtensionList) {
+    for (const auto& extension : _availableInstanceExtensionList) {
         if (extension.extensionName == name) {
             return true;
         }
@@ -164,7 +143,7 @@ inline bool hasInstanceExtension(StringView name)
 
 inline bool hasDeviceExtension(StringView name)
 {
-    for (const auto& extension : _vkAvailableDeviceExtensionList) {
+    for (const auto& extension : _availableDeviceExtensionList) {
         if (extension.extensionName == name) {
             return true;
         }
@@ -235,7 +214,7 @@ void initWindow()
         sdlVersion.minor,
         sdlVersion.patch);
     
-    _sdlWindow = SDL_CreateWindow(
+    _window = SDL_CreateWindow(
         _windowTitle.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
@@ -244,7 +223,7 @@ void initWindow()
         SDL_WINDOW_VULKAN
     );
 
-    if (!_sdlWindow) {
+    if (!_window) {
         throw Exception("SDL_CreateWindow failed, {}", SDL_GetError());
     }
 
@@ -258,7 +237,7 @@ void initInstance()
 
 #pragma region Layers
 
-    _vkAvailableInstanceLayerList = vk::enumerateInstanceLayerProperties();
+    _availableInstanceLayerList = vk::enumerateInstanceLayerProperties();
 
     List<const char *> requiredLayerNameList = { };
     
@@ -267,7 +246,7 @@ void initInstance()
     }
     
     Log(RYME_ANCHOR, "Available Vulkan Layers:");
-    for (const auto& layer : _vkAvailableInstanceLayerList) {
+    for (const auto& layer : _availableInstanceLayerList) {
         Log(RYME_ANCHOR, "\t{}: {}", layer.layerName, layer.description);
     }
 
@@ -279,20 +258,20 @@ void initInstance()
 #pragma endregion
 #pragma region Extensions
 
-    _vkAvailableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
+    _availableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
 
     uint32_t requiredInstanceExtensionCount = 0;
-    SDL_Vulkan_GetInstanceExtensions(_sdlWindow, &requiredInstanceExtensionCount, nullptr);
+    SDL_Vulkan_GetInstanceExtensions(_window, &requiredInstanceExtensionCount, nullptr);
 
     List<const char *> requiredInstanceExtensionList(requiredInstanceExtensionCount);
-    SDL_bool sdlResult = SDL_Vulkan_GetInstanceExtensions(
-        _sdlWindow,
+    SDL_bool result = SDL_Vulkan_GetInstanceExtensions(
+        _window,
         &requiredInstanceExtensionCount,
         requiredInstanceExtensionList.data()
     );
 
-    if (!sdlResult) {
-        throw Exception("SDL_Vulkan_GetInstanceExtensions() failed, {}", SDL_GetError());
+    if (!result) {
+        throw Exception("SDL_Vulkan_GetInstanceExtensions failed, {}", SDL_GetError());
     }
 
     #if defined(VK_EXT_debug_utils)
@@ -304,7 +283,7 @@ void initInstance()
     #endif
 
     Log(RYME_ANCHOR, "Available Vulkan Instance Extensions:");
-    for (const auto& extension : _vkAvailableInstanceExtensionList) {
+    for (const auto& extension : _availableInstanceExtensionList) {
         Log(RYME_ANCHOR, "\t{}", extension.extensionName);
     }
 
@@ -320,7 +299,7 @@ void initInstance()
     const auto& applicationVersion = GetApplicationVersion();
     const auto& engineVersion = GetVersion();
 
-    vk::ApplicationInfo applicationInfo = vk::ApplicationInfo()
+    auto applicationInfo = vk::ApplicationInfo()
         .setPApplicationName(applicationName.c_str())
         .setApplicationVersion(applicationVersion.ToVkVersion())
         .setPEngineName(RYME_PROJECT_NAME)
@@ -356,9 +335,9 @@ void initInstance()
 
     #endif
 
-    _vkInstance = vk::createInstance(instanceCreateInfo);
+    Instance = vk::createInstance(instanceCreateInfo);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(_vkInstance);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(Instance);
 
     Log(RYME_ANCHOR, "Vulkan Header Version: {}.{}.{}",
         VK_VERSION_MAJOR(VK_HEADER_VERSION_COMPLETE),
@@ -372,7 +351,7 @@ void initInstance()
     #if defined(VK_EXT_debug_utils)
 
         if (hasInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
-            _vkDebugUtilsMessenger = _vkInstance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo);
+            _debugUtilsMessenger = Instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfo);
         }
 
     #endif
@@ -383,13 +362,13 @@ void initInstance()
 
 void initSurface()
 {
-    SDL_bool sdlResult = SDL_Vulkan_CreateSurface(
-        _sdlWindow,
-        _vkInstance,
-        reinterpret_cast<VkSurfaceKHR *>(&_vkSurface)
+    SDL_bool result = SDL_Vulkan_CreateSurface(
+        _window,
+        Instance,
+        reinterpret_cast<VkSurfaceKHR *>(&_surface)
     );
     
-    if (!sdlResult) {
+    if (!result) {
         throw Exception("SDL_Vulkan_CreateSurface() failed, {}", SDL_GetError());
     }
 }
@@ -399,72 +378,70 @@ void initDevice()
 
 #pragma region Physical Device
 
-    for (const auto& physicalDevice : _vkInstance.enumeratePhysicalDevices()) {
-        _vkPhysicalDeviceProperties = physicalDevice.getProperties();
-        _vkPhysicalDeviceFeatures = physicalDevice.getFeatures();
+    // TODO: Allow user to choose GPU
+
+    Log(RYME_ANCHOR, "Available Physical Devices:");
+
+    for (const auto& physicalDevice : Instance.enumeratePhysicalDevices()) {
+        _physicalDeviceProperties = physicalDevice.getProperties();
+        _physicalDeviceFeatures = physicalDevice.getFeatures();
+
+        Log(RYME_ANCHOR, "\t{}", _physicalDeviceProperties.deviceName);
         
         bool isSuitable = (
-            _vkPhysicalDeviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu &&
-            _vkPhysicalDeviceFeatures.geometryShader
+            _physicalDeviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu &&
+            _physicalDeviceFeatures.geometryShader
         );
 
         if (isSuitable) {
-            _vkPhysicalDevice = physicalDevice;
+            _physicalDevice = physicalDevice;
             break;
         }
     }
 
-    if (!_vkPhysicalDevice) {
+    if (!_physicalDevice) {
         throw Exception("No suitable physical device found");
     }
 
-    Log(RYME_ANCHOR, "Physical Device Name: {}", _vkPhysicalDeviceProperties.deviceName);
+    Log(RYME_ANCHOR, "Physical Device Name: {}", _physicalDeviceProperties.deviceName);
 
     Log(RYME_ANCHOR, "Physical Vulkan Version: {}.{}.{}",
-        VK_VERSION_MAJOR(_vkPhysicalDeviceProperties.apiVersion),
-        VK_VERSION_MINOR(_vkPhysicalDeviceProperties.apiVersion),
-        VK_VERSION_PATCH(_vkPhysicalDeviceProperties.apiVersion)
+        VK_VERSION_MAJOR(_physicalDeviceProperties.apiVersion),
+        VK_VERSION_MINOR(_physicalDeviceProperties.apiVersion),
+        VK_VERSION_PATCH(_physicalDeviceProperties.apiVersion)
     );
 
 #pragma endregion
 #pragma region Queues
 
-    _vkGraphicsQueueFamilyIndex = UINT32_MAX;
-    _vkPresentQueueFamilyIndex = UINT32_MAX;
+    _graphicsQueueFamilyIndex = UINT32_MAX;
+    _presentQueueFamilyIndex = UINT32_MAX;
 
-    auto queueFamilyPropertyList = _vkPhysicalDevice.getQueueFamilyProperties();
+    auto queueFamilyPropertyList = _physicalDevice.getQueueFamilyProperties();
 
     uint32_t index = 0;
 
     Log(RYME_ANCHOR, "Available Vulkan Queue Families:");
 
-    Log(RYME_ANCHOR, "{} {} {} {} {}",
-        offsetof(ShaderGlobals, Resolution),
-        offsetof(ShaderGlobals, Mouse),
-        offsetof(ShaderGlobals, FrameCount),
-        offsetof(ShaderGlobals, TotalTime),
-        offsetof(ShaderGlobals, FrameSpeedRatio)
-    );
-    
     for (const auto& properties : queueFamilyPropertyList) {
-        auto hasPresent = _vkPhysicalDevice.getSurfaceSupportKHR(index, _vkSurface);
+        auto hasPresent = _physicalDevice.getSurfaceSupportKHR(index, _surface);
         bool hasGraphics = (properties.queueFlags & vk::QueueFlagBits::eGraphics ? true : false);
 
         // Pick the first available Queue with Graphics support
-        if (_vkGraphicsQueueFamilyIndex == UINT32_MAX && hasGraphics) {
-            _vkGraphicsQueueFamilyIndex = index;
+        if (_graphicsQueueFamilyIndex == UINT32_MAX && hasGraphics) {
+            _graphicsQueueFamilyIndex = index;
         }
         
         // Pick the first available Queue with Present support
-        if (_vkPresentQueueFamilyIndex == UINT32_MAX && hasPresent) {
-            _vkPresentQueueFamilyIndex = index;
+        if (_presentQueueFamilyIndex == UINT32_MAX && hasPresent) {
+            _presentQueueFamilyIndex = index;
         }
 
         // If our Graphics and Present Queues aren't the same, try to find one that supports both
-        if (_vkGraphicsQueueFamilyIndex != _vkPresentQueueFamilyIndex
+        if (_graphicsQueueFamilyIndex != _presentQueueFamilyIndex
             && hasPresent && hasGraphics) {
-            _vkGraphicsQueueFamilyIndex = index;
-            _vkPresentQueueFamilyIndex = index;
+            _graphicsQueueFamilyIndex = index;
+            _presentQueueFamilyIndex = index;
         }
 
         Log(RYME_ANCHOR, "\t#{}: {} Queues, {}",
@@ -476,25 +453,26 @@ void initDevice()
         ++index;
     }
 
-    if (_vkGraphicsQueueFamilyIndex == UINT32_MAX) {
+    if (_graphicsQueueFamilyIndex == UINT32_MAX) {
         throw Exception("No suitable graphics queue found");
     }
 
-    if (_vkPresentQueueFamilyIndex == UINT32_MAX) {
+    if (_presentQueueFamilyIndex == UINT32_MAX) {
         throw Exception("No suitable present queue found");
     }
 
-    Log(RYME_ANCHOR, "Vulkan Graphics Queue Family Index: #{}", _vkGraphicsQueueFamilyIndex);
-    Log(RYME_ANCHOR, "Vulkan Present Queue Family Index: #{}", _vkPresentQueueFamilyIndex);
+    Log(RYME_ANCHOR, "Vulkan Graphics Queue Family Index: #{}", _graphicsQueueFamilyIndex);
+
+    Log(RYME_ANCHOR, "Vulkan Present Queue Family Index: #{}", _presentQueueFamilyIndex);
 
     const float queuePriorities = 1.0f;
 
-    List<vk::DeviceQueueCreateInfo> queueCreateInfoList;
     Set<uint32_t> queueFamilyIndexSet = {
-        _vkGraphicsQueueFamilyIndex,
-        _vkPresentQueueFamilyIndex
+        _graphicsQueueFamilyIndex,
+        _presentQueueFamilyIndex
     };
 
+    List<vk::DeviceQueueCreateInfo> queueCreateInfoList;
     for (auto index : queueFamilyIndexSet) {
         queueCreateInfoList.push_back(
             vk::DeviceQueueCreateInfo({}, index, 1, &queuePriorities)
@@ -504,9 +482,11 @@ void initDevice()
 #pragma endregion
 #pragma region Extensions
 
-    _vkAvailableDeviceExtensionList = _vkPhysicalDevice.enumerateDeviceExtensionProperties();
+    _availableDeviceExtensionList = _physicalDevice.enumerateDeviceExtensionProperties();
 
-    List<const char *> requiredDeviceExtensionNameList = { };
+    List<const char *> requiredDeviceExtensionNameList = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
     
     #if defined(VK_EXT_memory_budget)
         
@@ -515,11 +495,9 @@ void initDevice()
         }
 
     #endif
-
-    requiredDeviceExtensionNameList.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     
     Log(RYME_ANCHOR, "Available Vulkan Device Extensions:");
-    for (const auto& extension : _vkAvailableDeviceExtensionList) {
+    for (const auto& extension : _availableDeviceExtensionList) {
         Log(RYME_ANCHOR, "\t{}", extension.extensionName);
     }
 
@@ -535,12 +513,12 @@ void initDevice()
         .setQueueCreateInfos(queueCreateInfoList)
         .setPEnabledExtensionNames(requiredDeviceExtensionNameList);
 
-    _vkDevice = _vkPhysicalDevice.createDevice(deviceCreateInfo);
+    Device = _physicalDevice.createDevice(deviceCreateInfo);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(_vkDevice);
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(Device);
     
-    _vkGraphicsQueue = _vkDevice.getQueue(_vkGraphicsQueueFamilyIndex, 0);
-    _vkPresentQueue = _vkDevice.getQueue(_vkPresentQueueFamilyIndex, 0);
+    _graphicsQueue = Device.getQueue(_graphicsQueueFamilyIndex, 0);
+    _presentQueue = Device.getQueue(_presentQueueFamilyIndex, 0);
 
 #pragma endregion
 
@@ -560,17 +538,17 @@ void initAllocator()
 
     auto allocatorCreateInfo = vma::AllocatorCreateInfo()
         .setFlags(allocatorCreateFlags)
-        .setInstance(_vkInstance)
-        .setPhysicalDevice(_vkPhysicalDevice)
-        .setDevice(_vkDevice)
+        .setInstance(Instance)
+        .setPhysicalDevice(_physicalDevice)
+        .setDevice(Device)
         .setVulkanApiVersion(VK_API_VERSION_1_1);
 
-    _vmaAllocator = vma::createAllocator(allocatorCreateInfo);
+    Allocator = vma::createAllocator(allocatorCreateInfo);
 
-    auto memoryProperties = _vkPhysicalDevice.getMemoryProperties();
+    auto memoryProperties = _physicalDevice.getMemoryProperties();
 
     List<vma::Budget> budgetList(memoryProperties.memoryHeapCount);
-    _vmaAllocator.getBudget(budgetList.data());
+    Allocator.getBudget(budgetList.data());
 
     for (uint32_t heap = 0; heap < memoryProperties.memoryHeapCount; ++heap) {
         Log(RYME_ANCHOR, "Vulkan Memory Heap #{}: {}",
@@ -601,33 +579,33 @@ void initDepthBuffer()
         vk::Format::eD16UnormS8Uint,
     };
 
-    _vkDepthImageFormat = vk::Format::eUndefined;
+    _depthImageFormat = vk::Format::eUndefined;
 
     for (const auto& format : potentialFormatList) {
-        vk::FormatProperties formatProperties = _vkPhysicalDevice.getFormatProperties(format);
+        vk::FormatProperties formatProperties = _physicalDevice.getFormatProperties(format);
 
         if (formatProperties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment) {
-            _vkDepthImageFormat = format;
+            _depthImageFormat = format;
             break;
         }
     }
 
-    if (_vkDepthImageFormat == vk::Format::eUndefined) {
+    if (_depthImageFormat == vk::Format::eUndefined) {
         throw Exception("Unable to find suitable depth buffer image format");
     }
 
     Log(RYME_ANCHOR, "Vulkan Depth Buffer Image Format: {}",
-        vk::to_string(_vkDepthImageFormat)
+        vk::to_string(_depthImageFormat)
     );
     
-    _vmaAllocator.freeMemory(_vmaDepthImageAllocation);
+    Allocator.freeMemory(_depthImageAllocation);
 
-    _vkDevice.destroyImage(_vkDepthImage);
+    Device.destroyImage(_depthImage);
 
     auto imageCreateInfo = vk::ImageCreateInfo()
         .setImageType(vk::ImageType::e2D)
-        .setFormat(_vkDepthImageFormat)
-        .setExtent(vk::Extent3D(_vkSwapChainExtent, 1))
+        .setFormat(_depthImageFormat)
+        .setExtent(vk::Extent3D(_swapChainExtent, 1))
         .setMipLevels(1)
         .setArrayLayers(1)
         .setTiling(vk::ImageTiling::eOptimal)
@@ -636,17 +614,17 @@ void initDepthBuffer()
     auto allocationCreateInfo = vma::AllocationCreateInfo()
         .setUsage(vma::MemoryUsage::eGpuOnly);
     
-    std::tie(_vkDepthImage, _vmaDepthImageAllocation) = _vmaAllocator.createImage(imageCreateInfo, allocationCreateInfo);
+    std::tie(_depthImage, _depthImageAllocation) = Allocator.createImage(imageCreateInfo, allocationCreateInfo);
 
-    _vkDevice.destroyImageView(_vkDepthImageView);
+    Device.destroyImageView(_depthImageView);
 
     auto imageViewCreateInfo = vk::ImageViewCreateInfo()
-        .setImage(_vkDepthImage)
+        .setImage(_depthImage)
         .setViewType(vk::ImageViewType::e2D)
-        .setFormat(_vkDepthImageFormat)
+        .setFormat(_depthImageFormat)
         .setSubresourceRange({ vk::ImageAspectFlagBits::eDepth, 0, 1, 0, 1 });
 
-    _vkDepthImageView = _vkDevice.createImageView(imageViewCreateInfo);
+    _depthImageView = Device.createImageView(imageViewCreateInfo);
 }
 
 void initUniformBuffers()
@@ -663,31 +641,34 @@ void initUniformBuffers()
 
 void initCommandBufferList()
 {
-    _vkDevice.freeCommandBuffers(_vkCommandPool, _vkCommandBufferList);
+    Device.freeCommandBuffers(_commandPool, _commandBufferList);
 
-    _vkDevice.destroyCommandPool(_vkCommandPool);
+    Device.destroyCommandPool(_commandPool);
 
-    _vkCommandPool = _vkDevice.createCommandPool(
-        vk::CommandPoolCreateInfo({}, _vkGraphicsQueueFamilyIndex)
+    _commandPool = Device.createCommandPool(
+        vk::CommandPoolCreateInfo({}, _graphicsQueueFamilyIndex)
     );
 
-    _vkCommandBufferList = _vkDevice.allocateCommandBuffers(
+    _commandBufferList = Device.allocateCommandBuffers(
         vk::CommandBufferAllocateInfo(
-            _vkCommandPool,
+            _commandPool,
             vk::CommandBufferLevel::ePrimary,
-            _backbufferCount
+            _swapChainImageList.size()
         )
     );
 }
 
 void initSwapChain()
 {
-    vkDeviceWaitIdle(_vkDevice);
+    vkDeviceWaitIdle(Device);
 
 #pragma region Image Format
 
-    List<vk::SurfaceFormatKHR> formatList = _vkPhysicalDevice.getSurfaceFormatsKHR(_vkSurface);
-    assert(!formatList.empty());
+    auto formatList = _physicalDevice.getSurfaceFormatsKHR(_surface);
+
+    if (formatList.empty()) {
+        throw Exception("No Vulkan Surface Formats Available");
+    }
 
     auto imageFormat = formatList.front();
 
@@ -708,7 +689,7 @@ void initSwapChain()
         );
     }
 
-    _vkSwapChainImageFormat = imageFormat.format;
+    _swapChainImageFormat = imageFormat.format;
 
     Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {} {} ",
         vk::to_string(imageFormat.format),
@@ -718,18 +699,18 @@ void initSwapChain()
 #pragma endregion
 #pragma region Image Extent
 
-    vk::SurfaceCapabilitiesKHR surfaceCapabilities = _vkPhysicalDevice.getSurfaceCapabilitiesKHR(_vkSurface);
+    auto surfaceCapabilities = _physicalDevice.getSurfaceCapabilitiesKHR(_surface);
 
-    _vkSwapChainExtent = surfaceCapabilities.currentExtent;
+    _swapChainExtent = surfaceCapabilities.currentExtent;
 
-    if (_vkSwapChainExtent.width == UINT32_MAX) {
-        _vkSwapChainExtent.width = std::clamp(
+    if (_swapChainExtent.width == UINT32_MAX) {
+        _swapChainExtent.width = std::clamp(
             static_cast<uint32_t>(_windowSize.x),
             surfaceCapabilities.minImageExtent.width,
             surfaceCapabilities.maxImageExtent.width
         );
 
-        _vkSwapChainExtent.height = std::clamp(
+        _swapChainExtent.height = std::clamp(
             static_cast<uint32_t>(_windowSize.y),
             surfaceCapabilities.minImageExtent.height,
             surfaceCapabilities.maxImageExtent.height
@@ -737,25 +718,26 @@ void initSwapChain()
     }
 
     Log(RYME_ANCHOR, "Vulkan Swap Chain Extent: {}x{}",
-        _vkSwapChainExtent.width,
-        _vkSwapChainExtent.height
+        _swapChainExtent.width,
+        _swapChainExtent.height
     );
 
 #pragma endregion
 #pragma region Present Mode
 
-    auto presentModeList = _vkPhysicalDevice.getSurfacePresentModesKHR(_vkSurface);
+    auto presentModeList = _physicalDevice.getSurfacePresentModesKHR(_surface);
 
     // FIFO is the only present mode required to be supported
-    vk::PresentModeKHR presentMode = vk::PresentModeKHR::eFifo;
+    auto presentMode = vk::PresentModeKHR::eFifo;
     
     Log(RYME_ANCHOR, "Available Vulkan Present Modes:");
     for (const auto& mode : presentModeList) {
-        if (mode == vk::PresentModeKHR::eMailbox) {
-            presentMode = mode;
-        }
-
         Log(RYME_ANCHOR, "\t{}", vk::to_string(mode));
+    }
+    
+    // Mailbox is like FIFO, but discards extra images
+    if (ListContains(presentModeList, vk::PresentModeKHR::eMailbox)) {
+        presentMode = vk::PresentModeKHR::eMailbox;
     }
 
     Log(RYME_ANCHOR, "Vulkan Swap Chain Present Mode: {}", vk::to_string(presentMode));
@@ -763,14 +745,14 @@ void initSwapChain()
 #pragma endregion
 #pragma region Swap Chain
 
-    vk::SwapchainKHR oldSwapChain = _vkSwapChain;
+    auto oldSwapChain = _swapChain;
 
     auto swapChainCreateInfo = vk::SwapchainCreateInfoKHR()
-        .setSurface(_vkSurface)
+        .setSurface(_surface)
         .setMinImageCount(surfaceCapabilities.minImageCount)
         .setImageFormat(imageFormat.format)
         .setImageColorSpace(imageFormat.colorSpace)
-        .setImageExtent(_vkSwapChainExtent)
+        .setImageExtent(_swapChainExtent)
         .setImageArrayLayers(1) // Always 1 for 3D applications
         .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
         .setPreTransform(surfaceCapabilities.currentTransform)
@@ -789,11 +771,11 @@ void initSwapChain()
     }
     
     Array<uint32_t, 2> queueFamilyIndexList = {
-        _vkGraphicsQueueFamilyIndex,
-        _vkPresentQueueFamilyIndex
+        _graphicsQueueFamilyIndex,
+        _presentQueueFamilyIndex
     };
 
-    if (_vkGraphicsQueueFamilyIndex != _vkPresentQueueFamilyIndex) {
+    if (_graphicsQueueFamilyIndex != _presentQueueFamilyIndex) {
         swapChainCreateInfo.setImageSharingMode(vk::SharingMode::eConcurrent);
         swapChainCreateInfo.setQueueFamilyIndices(queueFamilyIndexList);
     }
@@ -814,31 +796,31 @@ void initSwapChain()
         vk::to_string(swapChainCreateInfo.imageSharingMode)
     );
 
-    _vkSwapChain = _vkDevice.createSwapchainKHR(swapChainCreateInfo);
+    _swapChain = Device.createSwapchainKHR(swapChainCreateInfo);
 
-    _vkDevice.destroySwapchainKHR(oldSwapChain);
+    Device.destroySwapchainKHR(oldSwapChain);
 
 #pragma endregion
 #pragma region Image List
 
-    _vkSwapChainImageList = _vkDevice.getSwapchainImagesKHR(_vkSwapChain);
+    _swapChainImageList = Device.getSwapchainImagesKHR(_swapChain);
 
-    for (auto& imageView : _vkSwapChainImageViewList) {
-        _vkDevice.destroyImageView(imageView);
+    for (auto& imageView : _swapChainImageViewList) {
+        Device.destroyImageView(imageView);
     }
 
-    _vkSwapChainImageViewList.clear();
-    _vkSwapChainImageViewList.reserve(_vkSwapChainImageList.size());
+    _swapChainImageViewList.clear();
+    _swapChainImageViewList.reserve(_swapChainImageList.size());
 
     auto imageViewCreateInfo = vk::ImageViewCreateInfo()
         .setViewType(vk::ImageViewType::e2D)
-        .setFormat(_vkSwapChainImageFormat)
+        .setFormat(_swapChainImageFormat)
         .setSubresourceRange({ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 });
 
-    for (const auto& image : _vkSwapChainImageList) {
+    for (const auto& image : _swapChainImageList) {
         imageViewCreateInfo.setImage(image);
-        _vkSwapChainImageViewList.push_back(
-            _vkDevice.createImageView(imageViewCreateInfo)
+        _swapChainImageViewList.push_back(
+            Device.createImageView(imageViewCreateInfo)
         );
     }
 
@@ -860,9 +842,6 @@ void Init(String windowTitle, Vec2i windowSize)
     _windowSize = windowSize;
     _windowTitle = windowTitle;
     
-    SDL_bool sdlResult;
-    VkResult vkResult;
-    
     initWindow();
     initInstance();
     initSurface();
@@ -880,36 +859,36 @@ void Term()
 {
     RYME_BENCHMARK_START();
 
-    _vkDevice.freeCommandBuffers(_vkCommandPool, _vkCommandBufferList);
+    Device.freeCommandBuffers(_commandPool, _commandBufferList);
 
-    _vkDevice.destroyCommandPool(_vkCommandPool);
+    Device.destroyCommandPool(_commandPool);
 
-    _vkDevice.destroyImageView(_vkDepthImageView);
+    Device.destroyImageView(_depthImageView);
     
-    _vkDevice.destroyImage(_vkDepthImage);
+    Device.destroyImage(_depthImage);
 
-    _vmaAllocator.freeMemory(_vmaDepthImageAllocation);
+    Allocator.freeMemory(_depthImageAllocation);
 
-    for (auto& imageView : _vkSwapChainImageViewList) {
-        _vkDevice.destroyImageView(imageView);
+    for (auto& imageView : _swapChainImageViewList) {
+        Device.destroyImageView(imageView);
     }
 
-    // The vk::Image's in _vkSwapChainImageList are destroyed as well
-    _vkDevice.destroySwapchainKHR(_vkSwapChain);
+    // The vk::Image's in _swapChainImageList are destroyed as well
+    Device.destroySwapchainKHR(_swapChain);
 
-    _vmaAllocator.destroy();
+    Allocator.destroy();
 
-    _vkDevice.destroy();
+    Device.destroy();
 
-    _vkInstance.destroySurfaceKHR(_vkSurface);
+    Instance.destroySurfaceKHR(_surface);
 
-    _vkInstance.destroyDebugUtilsMessengerEXT(_vkDebugUtilsMessenger);
+    Instance.destroyDebugUtilsMessengerEXT(_debugUtilsMessenger);
 
-    _vkInstance.destroy();
+    Instance.destroy();
 
-    if (_sdlWindow) {
-        SDL_DestroyWindow(_sdlWindow);
-        _sdlWindow = nullptr;
+    if (_window) {
+        SDL_DestroyWindow(_window);
+        _window = nullptr;
     }
 
     SDL_Quit();
@@ -920,10 +899,10 @@ void Term()
 RYME_API
 void SetWindowTitle(String windowTitle)
 {
-    assert(_sdlWindow);
+    assert(_window);
     
     _windowTitle = windowTitle;
-    SDL_SetWindowTitle(_sdlWindow, _windowTitle.c_str());
+    SDL_SetWindowTitle(_window, _windowTitle.c_str());
 }
 
 RYME_API
@@ -935,10 +914,10 @@ String GetWindowTitle()
 RYME_API
 void SetWindowSize(Vec2i windowSize)
 {
-    assert(_sdlWindow);
+    assert(_window);
     
     _windowSize = windowSize;
-    SDL_SetWindowSize(_sdlWindow, _windowSize.x, _windowSize.y);
+    SDL_SetWindowSize(_window, _windowSize.x, _windowSize.y);
 }
 
 RYME_API
@@ -1111,7 +1090,7 @@ Vec2i GetWindowSize()
 //     };
 
 //     vkResult = vkCreateSwapchainKHR(
-//         _vkDevice,
+//         Device,
 //         &swapChainCreateInfo,
 //         nullptr,
 //         &_vkSwapChain
@@ -1122,14 +1101,14 @@ Vec2i GetWindowSize()
 //     }
 
 //     if (oldSwapChain) {
-//         vkDestroySwapchainKHR(_vkDevice, oldSwapChain, nullptr);
+//         vkDestroySwapchainKHR(Device, oldSwapChain, nullptr);
 //         oldSwapChain = VK_NULL_HANDLE;
 //     }
 
 //     _vkSwapChainImageFormat = surfaceFormat.format;
 
 //     vkGetSwapchainImagesKHR(
-//         _vkDevice,
+//         Device,
 //         _vkSwapChain,
 //         &imageCount,
 //         nullptr
@@ -1138,7 +1117,7 @@ Vec2i GetWindowSize()
 //     _vkSwapChainImageList.resize(imageCount, VK_NULL_HANDLE);
 
 //     vkGetSwapchainImagesKHR(
-//         _vkDevice,
+//         Device,
 //         _vkSwapChain,
 //         &imageCount,
 //         _vkSwapChainImageList.data()
@@ -1148,7 +1127,7 @@ Vec2i GetWindowSize()
 
 //     for (unsigned i = 0; i < _backbufferCount; ++i) {
 //         if (_vkSwapChainImageViewList[i]) {
-//             vkDestroyImageView(_vkDevice, _vkSwapChainImageViewList[i], nullptr);
+//             vkDestroyImageView(Device, _vkSwapChainImageViewList[i], nullptr);
 //             _vkSwapChainImageViewList[i] = VK_NULL_HANDLE;
 //         }
 
@@ -1169,7 +1148,7 @@ Vec2i GetWindowSize()
 //         };
 
 //         vkResult = vkCreateImageView(
-//             _vkDevice,
+//             Device,
 //             &imageViewCreateInfo,
 //             nullptr,
 //             &_vkSwapChainImageViewList[i]
@@ -1201,13 +1180,13 @@ Vec2i GetWindowSize()
 
 //     for (auto& imageView : _vkSwapChainImageViewList) {
 //         if (imageView) {
-//             vkDestroyImageView(_vkDevice, imageView, nullptr);
+//             vkDestroyImageView(Device, imageView, nullptr);
 //             imageView = nullptr;
 //         }
 //     }
 
 //     if (_vkSwapChain) {
-//         vkDestroySwapchainKHR(_vkDevice, _vkSwapChain, nullptr);
+//         vkDestroySwapchainKHR(Device, _vkSwapChain, nullptr);
 //         _vkSwapChain = VK_NULL_HANDLE;
 //     }
 // }
@@ -1215,7 +1194,7 @@ Vec2i GetWindowSize()
 // void resetSwapChain()
 // {
 //     if (_vkSwapChain) {
-//         vkDeviceWaitIdle(_vkDevice);
+//         vkDeviceWaitIdle(Device);
 
 //         initSwapChain();
 //     }
@@ -1244,7 +1223,7 @@ Vec2i GetWindowSize()
 
 //     for (unsigned i = 0; i < _backbufferCount; ++i) {
 //         vkResult = vkCreateSemaphore(
-//             _vkDevice,
+//             Device,
 //             &semaphoreCreateInfo,
 //             nullptr,
 //             &_vkImageAvailableSemaphoreList[i]
@@ -1255,7 +1234,7 @@ Vec2i GetWindowSize()
 //         }   
 
 //         vkResult = vkCreateSemaphore(
-//             _vkDevice,
+//             Device,
 //             &semaphoreCreateInfo,
 //             nullptr,
 //             &_vkRenderingFinishedSemaphoreList[i]
@@ -1266,7 +1245,7 @@ Vec2i GetWindowSize()
 //         }
 
 //         vkResult = vkCreateFence(
-//             _vkDevice,
+//             Device,
 //             &fenceCreateInfo,
 //             nullptr,
 //             &_vkInFlightFenceList[i]
@@ -1282,22 +1261,22 @@ Vec2i GetWindowSize()
 // {
 //     for (auto& fence : _vkImageInFlightList) {
 //         // TODO: This could blow up be careful.
-//         vkDestroyFence(_vkDevice, fence, VK_NULL_HANDLE);
+//         vkDestroyFence(Device, fence, VK_NULL_HANDLE);
 //         fence = VK_NULL_HANDLE;
 //     }
 
 //     for (auto& fence : _vkInFlightFenceList) {
-//         vkDestroyFence(_vkDevice, fence, VK_NULL_HANDLE);
+//         vkDestroyFence(Device, fence, VK_NULL_HANDLE);
 //         fence = VK_NULL_HANDLE;
 //     }
 
 //     for (auto& semaphore : _vkRenderingFinishedSemaphoreList) {
-//         vkDestroySemaphore(_vkDevice, semaphore, VK_NULL_HANDLE);
+//         vkDestroySemaphore(Device, semaphore, VK_NULL_HANDLE);
 //         semaphore = VK_NULL_HANDLE;
 //     }
 
 //     for (auto& semaphore : _vkImageAvailableSemaphoreList) {
-//         vkDestroySemaphore(_vkDevice, semaphore, VK_NULL_HANDLE);
+//         vkDestroySemaphore(Device, semaphore, VK_NULL_HANDLE);
 //         semaphore = VK_NULL_HANDLE;
 //     }
 // }
@@ -1366,7 +1345,7 @@ Vec2i GetWindowSize()
 //     };
 
 //     vkResult = vmaCreateImage(
-//         _vmaAllocator,
+//         Allocator,
 //         &imageCreateInfo,
 //         &allocationCreateInfo,
 //         &_vkDepthImage,
@@ -1395,7 +1374,7 @@ Vec2i GetWindowSize()
 //     };
 
 //     vkResult = vkCreateImageView(
-//         _vkDevice,
+//         Device,
 //         &imageViewCreateInfo,
 //         nullptr,
 //         &_vkDepthImageView
@@ -1409,17 +1388,17 @@ Vec2i GetWindowSize()
 // void termDepthBuffer()
 // {
 //     if (_vkDepthImage) {
-//         vkDestroyImage(_vkDevice, _vkDepthImage, nullptr);
+//         vkDestroyImage(Device, _vkDepthImage, nullptr);
 //         _vkDepthImage = VK_NULL_HANDLE;
 //     }
 
 //     if (_vmaDepthImageAllocation) {
-//         vmaFreeMemory(_vmaAllocator, _vmaDepthImageAllocation);
+//         vmaFreeMemory(Allocator, _vmaDepthImageAllocation);
 //         _vmaDepthImageAllocation = VK_NULL_HANDLE;
 //     }
 
 //     if (_vkDepthImageView) {
-//         vkDestroyImageView(_vkDevice, _vkDepthImageView, nullptr);
+//         vkDestroyImageView(Device, _vkDepthImageView, nullptr);
 //         _vkDepthImageView = VK_NULL_HANDLE;
 //     }
 // }
@@ -1507,7 +1486,7 @@ Vec2i GetWindowSize()
 //         .pDependencies = subpassDependencyList.data(),
 //     };
 
-//     vkResult = vkCreateRenderPass(_vkDevice, &renderPassCreateInfo, nullptr, &_vkRenderPass);
+//     vkResult = vkCreateRenderPass(Device, &renderPassCreateInfo, nullptr, &_vkRenderPass);
 
 //     if (vkResult != VK_SUCCESS) {
 //         throw Exception("vkCreateRenderPass() failed");
@@ -1517,7 +1496,7 @@ Vec2i GetWindowSize()
 // void termRenderPass()
 // {
 //     if (_vkRenderPass) {
-//         vkDestroyRenderPass(_vkDevice, _vkRenderPass, nullptr);
+//         vkDestroyRenderPass(Device, _vkRenderPass, nullptr);
 //         _vkRenderPass = VK_NULL_HANDLE;
 //     }
 // }
@@ -1545,7 +1524,7 @@ Vec2i GetWindowSize()
 //     };
 
 //     vkResult = vkCreateDescriptorPool(
-//         _vkDevice,
+//         Device,
 //         &descriptorPoolCreateInfo,
 //         nullptr,
 //         &_vkDescriptorPool
@@ -1584,7 +1563,7 @@ Vec2i GetWindowSize()
 //     };
 
 //     vkResult = vkCreateDescriptorSetLayout(
-//         _vkDevice,
+//         Device,
 //         &descriptorSetLayoutCreateInfo,
 //         nullptr,
 //         &_vkDescriptorSetLayoutList[0]
@@ -1599,13 +1578,13 @@ Vec2i GetWindowSize()
 // {
 //     for (auto& descriptorSetLayout : _vkDescriptorSetLayoutList) {
 //         if (descriptorSetLayout) {
-//             vkDestroyDescriptorSetLayout(_vkDevice, descriptorSetLayout, nullptr);
+//             vkDestroyDescriptorSetLayout(Device, descriptorSetLayout, nullptr);
 //             descriptorSetLayout = VK_NULL_HANDLE;
 //         }
 //     }
 
 //     if (_vkDescriptorPool) {
-//         vkDestroyDescriptorPool(_vkDevice, _vkDescriptorPool, nullptr);
+//         vkDestroyDescriptorPool(Device, _vkDescriptorPool, nullptr);
 //         _vkDescriptorPool = VK_NULL_HANDLE;
 //     }
 // }
@@ -1613,11 +1592,11 @@ Vec2i GetWindowSize()
 void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::BufferCopy region)
 {
     auto allocateInfo = vk::CommandBufferAllocateInfo()
-        .setCommandPool(_vkCommandPool)
+        .setCommandPool(_commandPool)
         .setLevel(vk::CommandBufferLevel::ePrimary)
         .setCommandBufferCount(1);
 
-    auto commandBufferList = _vkDevice.allocateCommandBuffers(allocateInfo);
+    auto commandBufferList = Device.allocateCommandBuffers(allocateInfo);
     auto commandBuffer = commandBufferList.front();
 
     auto beginInfo = vk::CommandBufferBeginInfo()
@@ -1632,21 +1611,21 @@ void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::BufferCopy regio
     auto submitInfo = vk::SubmitInfo()
         .setCommandBuffers(commandBufferList);
 
-    _vkGraphicsQueue.submit({ submitInfo }, nullptr);
+    _graphicsQueue.submit({ submitInfo }, nullptr);
 
-    _vkGraphicsQueue.waitIdle();
+    _graphicsQueue.waitIdle();
 
-    _vkDevice.freeCommandBuffers(_vkCommandPool, commandBufferList);
+    Device.freeCommandBuffers(_commandPool, commandBufferList);
 }
 
 void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region)
 {
     auto allocateInfo = vk::CommandBufferAllocateInfo()
-        .setCommandPool(_vkCommandPool)
+        .setCommandPool(_commandPool)
         .setLevel(vk::CommandBufferLevel::ePrimary)
         .setCommandBufferCount(1);
 
-    auto commandBufferList = _vkDevice.allocateCommandBuffers(allocateInfo);
+    auto commandBufferList = Device.allocateCommandBuffers(allocateInfo);
     auto commandBuffer = commandBufferList.front();
 
     auto subresourceRange = vk::ImageSubresourceRange()
@@ -1693,11 +1672,11 @@ void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region
     auto submitInfo = vk::SubmitInfo()
         .setCommandBuffers(commandBufferList);
 
-    _vkGraphicsQueue.submit({ submitInfo }, nullptr);
+    _graphicsQueue.submit({ submitInfo }, nullptr);
 
-    _vkGraphicsQueue.waitIdle();
+    _graphicsQueue.waitIdle();
 
-    _vkDevice.freeCommandBuffers(_vkCommandPool, commandBufferList);
+    Device.freeCommandBuffers(_commandPool, commandBufferList);
 }
 
 } // namespace Graphics

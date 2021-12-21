@@ -7,12 +7,12 @@
 
 namespace ryme {
     
-Texture::Texture(const Path& path, bool search /*= true*/)
+Texture::Texture(const Path& path, vk::SamplerCreateInfo samplerCreateInfo /*= {}*/, bool search /*= true*/)
 {
-    LoadFromFile(path, search);
+    LoadFromFile(path, samplerCreateInfo, search);
 }
 
-bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
+bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreateInfo /*= {}*/, bool search /*= true*/)
 {
     int width;
     int height;
@@ -39,9 +39,6 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
         return false;
     }
     
-    auto& vkDevice = Graphics::GetVkDevice();
-    auto& vmaAllocator = Graphics::GetVmaAllocator();
-
     vk::DeviceSize size = width * height * STBI_rgb_alpha;
 
     auto stagingBufferCreateInfo = vk::BufferCreateInfo()
@@ -54,7 +51,7 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
 
     vma::AllocationInfo stagingAllocationInfo;
 
-    auto[stagingBuffer, stagingAllocation] = vmaAllocator.createBuffer(
+    auto[stagingBuffer, stagingAllocation] = Graphics::Allocator.createBuffer(
         stagingBufferCreateInfo,
         stagingAllocationCreateInfo,
         stagingAllocationInfo
@@ -72,13 +69,13 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
         .setMipLevels(1) // TODO: Investigate
         .setArrayLayers(1) // TODO: Investigate
         .setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
+        .setInitialLayout(vk::ImageLayout::eUndefined) // Preinitialized?
         .setSamples(vk::SampleCountFlagBits::e1);
 
     auto allocationCreateInfo = vma::AllocationCreateInfo()
         .setUsage(vma::MemoryUsage::eGpuOnly);
 
-    std::tie(_vkImage, _vmaAllocation) = Graphics::GetVmaAllocator()
+    std::tie(_image, _allocation) = Graphics::Allocator
         .createImage(imageCreateInfo, allocationCreateInfo);
 
     auto subresourceLayers = vk::ImageSubresourceLayers()
@@ -95,11 +92,11 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
         .setImageOffset(vk::Offset3D(0, 0, 0))
         .setImageExtent(vk::Extent3D(width, height, 1));
 
-    Graphics::CopyBufferToImage(stagingBuffer, _vkImage, region);
+    Graphics::CopyBufferToImage(stagingBuffer, _image, region);
 
-    vmaAllocator.freeMemory(stagingAllocation);
+    Graphics::Allocator.freeMemory(stagingAllocation);
 
-    vkDevice.destroyBuffer(stagingBuffer);
+    Graphics::Device.destroyBuffer(stagingBuffer);
 
     auto subresourceRange = vk::ImageSubresourceRange()
         .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -109,14 +106,17 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
         .setLayerCount(1);
 
     auto imageViewCreateInfo = vk::ImageViewCreateInfo()
-        .setImage(_vkImage)
+        .setImage(_image)
         .setViewType(vk::ImageViewType::e2D)
         .setFormat(vk::Format::eR8G8B8A8Srgb)
         .setSubresourceRange(subresourceRange);
 
-    _vkImageView = vkDevice.createImageView(imageViewCreateInfo);
+    _imageView = Graphics::Device.createImageView(imageViewCreateInfo);
+
+    _sampler = Graphics::Device.createSampler(samplerCreateInfo);
 
     _path = fullPath;
+    _samplerCreateInfo = samplerCreateInfo;
     
     Log(RYME_ANCHOR, "Loaded '{}'", fullPath);
 
@@ -126,19 +126,18 @@ bool Texture::LoadFromFile(const Path& path, bool search /*= true*/)
 
 void Texture::Free()
 {
-    auto& vkDevice = Graphics::GetVkDevice();
-    auto& vmaAllocator = Graphics::GetVmaAllocator();
+    Graphics::Device.destroySampler(_sampler);
 
-    vkDevice.destroyImageView(_vkImageView);
+    Graphics::Device.destroyImageView(_imageView);
 
-    vkDevice.destroyImage(_vkImage);
+    Graphics::Device.destroyImage(_image);
 
-    vmaAllocator.freeMemory(_vmaAllocation);
+    Graphics::Allocator.freeMemory(_allocation);
 }
 
 bool Texture::Reload()
 {
-    return LoadFromFile(_path, false);
+    return LoadFromFile(_path, _samplerCreateInfo, false);
 }
 
 } // namespace ryme

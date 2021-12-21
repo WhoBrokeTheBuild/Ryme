@@ -26,11 +26,11 @@ public:
     }
 
     inline vk::BufferUsageFlags GetBufferUsage() const {
-        return _vkBufferUsage;
+        return _bufferUsage;
     }
 
     inline vma::MemoryUsage GetMemoryUsage() const {
-        return _vmaMemoryUsage;
+        return _memoryUsage;
     }
 
     inline bool IsMapped() const {
@@ -45,13 +45,13 @@ private:
 
     vk::DeviceSize _size;
 
-    vk::BufferUsageFlags _vkBufferUsage;
+    vk::BufferUsageFlags _bufferUsage;
 
-    vma::MemoryUsage _vmaMemoryUsage;
+    vma::MemoryUsage _memoryUsage;
 
-    vk::Buffer _vkBuffer;
+    vk::Buffer _buffer;
     
-    vma::Allocation _vmaAllocation;
+    vma::Allocation _allocation;
 
     uint8_t * _mappedBufferMemory = nullptr;
 

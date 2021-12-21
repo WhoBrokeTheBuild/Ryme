@@ -27,10 +27,8 @@ bool Shader::LoadFromFiles(const List<Path>& pathList, bool search /*= true*/)
 
 void Shader::Free()
 {
-    auto vkDevice = Graphics::GetVkDevice();
-
     for (auto& shaderModule : _shaderModuleList) {
-        vkDevice.destroyShaderModule(shaderModule);
+        Graphics::Device.destroyShaderModule(shaderModule);
     }
     _shaderModuleList.clear();
 
@@ -101,7 +99,7 @@ bool Shader::LoadSPV(const Path& path, bool search)
         .setCodeSize(data.size())
         .setPCode(reinterpret_cast<uint32_t *>(data.data()));
 
-    auto shaderModule = Graphics::GetVkDevice().createShaderModule(shaderModuleCreateInfo);
+    auto shaderModule = Graphics::Device.createShaderModule(shaderModuleCreateInfo);
 
     _shaderModuleList.push_back(shaderModule);
 
