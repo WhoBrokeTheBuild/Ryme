@@ -2,6 +2,7 @@
 #define RYME_STRING_HPP
 
 #include <Ryme/Config.hpp>
+#include <Ryme/Containers.hpp>
 
 #include <string>
 #include <string_view>
@@ -12,27 +13,45 @@ using String = std::string;
 
 using StringView = std::string_view;
 
-inline bool StringEqualCaseInsensitive(StringView a, StringView b)
+using U32String = std::u32string;
+
+using U32StringView = std::u32string_view;
+
+using WideString = std::wstring;
+
+using WideStringView = std::wstring_view;
+
+inline bool StartsWith(StringView str, StringView value)
 {
-    // TODO: UTF-8
+    if (str.size() < value.size()) {
+        return false;
+    }
+
     return std::equal(
-        a.begin(), a.end(),
-        b.begin(), b.end(),
-        [](char a, char b) {
-            return std::tolower(a) == std::tolower(b);
-        }
+        value.begin(),
+        value.end(),
+        str.begin()
     );
 }
 
-#if defined(RYME_PLATFORM_WINDOWS)
+inline bool EndsWith(StringView str, StringView value)
+{
+    if (str.size() < value.size()) {
+        return false;
+    }
 
-    RYME_API
-    std::wstring ConvertUTF8ToWideString(String str);
+    return std::equal(
+        value.begin(),
+        value.end(),
+        str.end() - value.size()
+    );
+}
 
-    RYME_API
-    String ConvertWideStringToUTF8(std::wstring str);
+RYME_API
+List<String> Split(StringView str, String delim);
 
-#endif
+RYME_API
+String Join(List<String> strList, String delim = {});
 
 } // namespace ryme
 

@@ -4,6 +4,7 @@
 #include <Ryme/Config.hpp>
 #include <Ryme/String.hpp>
 #include <Ryme/Containers.hpp>
+#include <Ryme/UTF.hpp>
 
 #include <Ryme/ThirdParty/fmt.hpp>
 #include <Ryme/ThirdParty/python.hpp>
@@ -20,7 +21,7 @@ public:
 
     static void ScriptInit(py::module);
 
-    static List<Path> ParsePathList(const String& str);
+    static List<Path> ParsePathList(StringView str);
 
     Path() = default;
 

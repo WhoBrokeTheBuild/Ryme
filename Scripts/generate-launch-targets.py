@@ -104,10 +104,7 @@ if os.path.isdir('.vscode'):
             'name': 'PATH',
             'value': '${env:PATH};' + runtimePath
         })
-        data['console'] = 'internalConsole'
-        data['logging']= {
-            'moduleLoad': False
-        }
+        data['console'] = 'integratedTerminal'
     else:
         data['environment'].append({
             'name': 'LD_LIBRARY_PATH',

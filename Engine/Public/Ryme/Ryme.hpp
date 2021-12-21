@@ -11,6 +11,7 @@
 #include <Ryme/Script.hpp>
 #include <Ryme/String.hpp>
 #include <Ryme/Transform.hpp>
+#include <Ryme/UTF.hpp>
 #include <Ryme/Version.hpp>
 
 namespace ryme {
