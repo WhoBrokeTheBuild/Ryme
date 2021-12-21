@@ -10,23 +10,25 @@ namespace ryme {
 
 namespace UTF {
 
+static const char32_t ReplacementCharacter = U'\xFFFD';
+
 RYME_API
 bool IsValid(StringView str);
 
 RYME_API
-std::optional<size_t> GetLength(StringView str);
+size_t GetLength(StringView str);
 
 RYME_API
-std::optional<U32String> ToUTF32(StringView str);
+U32String ToUTF32(StringView str, char32_t replace = ReplacementCharacter);
 
 RYME_API
 String ToUTF8(U32StringView u32str);
 
 RYME_API
-char32_t ToLower(char32_t codePoint);
+String CaseFold(StringView str);
 
 RYME_API
-char32_t ToUpper(char32_t codePoint);
+U32String CaseFold(U32StringView u32str);
 
 #if defined(RYME_PLATFORM_WINDOWS)
 

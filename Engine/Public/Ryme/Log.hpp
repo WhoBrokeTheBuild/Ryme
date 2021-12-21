@@ -12,7 +12,18 @@
 
 namespace ryme {
 
-#define RYME_ANCHOR (fmt::format("{}:{}", ryme::Path(__FILE__).GetFilename(), __LINE__))
+// Optimized version of Path::GetFilename to be used with __FILE__
+inline StringView LogGetFilename(StringView filename)
+{
+    size_t pivot = filename.find_last_of(Path::Separator);
+    return (
+        pivot == StringView::npos
+        ? filename
+        : filename.substr(pivot + 1)
+    );
+}
+
+#define RYME_ANCHOR (fmt::format("{}:{}", ryme::LogGetFilename(__FILE__), __LINE__))
 
 #if defined(RYME_ENABLE_BENCHMARK)
 

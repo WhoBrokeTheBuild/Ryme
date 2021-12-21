@@ -145,18 +145,10 @@ bool Path::Equals(const Path& rhs) const
 {
     #if defined(RYME_PLATFORM_WINDOWS)
 
-        auto pathA = UTF::ToUTF32(_path).value();
-        auto pathB = UTF::ToUTF32(rhs._path).value();
+        auto pathA = UTF::CaseFold(_path);
+        auto pathB = UTF::CaseFold(rhs._path);
         
-        return std::equal(
-            pathA.begin(),
-            pathA.end(),
-            pathB.begin(),
-            pathB.end(),
-            [](char32_t a, char32_t b) {
-                return UTF::ToLower(a) == UTF::ToLower(b);
-            }
-        );
+        return (pathA == pathB);
 
     #else
 

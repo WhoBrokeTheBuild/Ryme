@@ -8,6 +8,7 @@
 #include <deque>
 #include <set>
 #include <span>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -24,6 +25,9 @@ using Set = std::set<T>;
 
 template <class T, size_t N = std::dynamic_extent>
 using Span = std::span<T, N>;
+
+template <class... T>
+using Tuple = std::tuple<T...>;
 
 template <class K, class V>
 using Map = std::unordered_map<K, V>;

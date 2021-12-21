@@ -10,12 +10,12 @@ namespace ryme {
 
 namespace UTF {
 
-std::tuple<size_t, char32_t> nextCodePoint(StringView str, size_t& offset)
+Tuple<size_t, char32_t> readCodePoint(StringView str, char32_t replace)
 {
     char32_t codePoint = 0;
-    int remaining = 0;
 
-    for (size_t i = offset; i < str.size(); ++i) {
+    int remaining = 0;
+    for (size_t i = 0; i < str.size(); ++i) {
         const char& c = str[i];
 
         if (remaining == 0) {
@@ -35,12 +35,12 @@ std::tuple<size_t, char32_t> nextCodePoint(StringView str, size_t& offset)
                 remaining = 3;
             }
             else {
-                return { 0, 0 };
+                return { i + 1, replace };
             }
         }
         else {
             if ((c & 0b11000000) != 0b10000000) {
-                return { 0, 0 };
+                return { i + 1, replace };
             }
 
             codePoint = (codePoint << 6) | (c & 0b00111111);
@@ -56,44 +56,95 @@ std::tuple<size_t, char32_t> nextCodePoint(StringView str, size_t& offset)
     return { 0, 0 };
 }
 
-bool IsValid(StringView str)
+void writeCodePoint(String& str, char32_t codePoint)
 {
-    return GetLength(str).has_value();
+    if (codePoint <= 0x7F) {
+        str.push_back(codePoint);
+    }
+    else if (codePoint <= 0x7FF) {
+        str.push_back(
+            0b11000000 | ((codePoint >> 6) & 0b00011111)
+        );
+        str.push_back(
+            0b10000000 | (codePoint & 0b00111111)
+        );
+    }
+    else if (codePoint <= 0xFFFF) {
+        str.push_back(
+            0b11100000 | ((codePoint >> 12) & 0b00001111)
+        );
+        str.push_back(
+            0b10000000 | ((codePoint >> 6) & 0b00111111)
+        );
+        str.push_back(
+            0b10000000 | (codePoint & 0b00111111)
+        );
+    }
+    else if (codePoint <= 0x10FFFF) {
+        str.push_back(
+            0b11110000 | ((codePoint >> 16) & 0b00000111)
+        );
+        str.push_back(
+            0b10000000 | ((codePoint >> 12) & 0b00111111)
+        );
+        str.push_back(
+            0b10000000 | ((codePoint >> 6) & 0b00111111)
+        );
+        str.push_back(
+            0b10000000 | (codePoint & 0b00111111)
+        );
+    }
+    else {
+        writeCodePoint(str, ReplacementCharacter);
+    }
 }
 
-std::optional<size_t> GetLength(StringView str)
+bool IsValid(StringView str)
 {
-    size_t length = 0;
-    char32_t codePoint;
+    char32_t codePoint = 0;
 
     size_t offset = 0;
-    while (offset < str.size()) {
-        std::tie(offset, codePoint) = nextCodePoint(str, offset);
-
-        if (offset == 0) {
-            return {};
+    while (!str.empty()) {
+        std::tie(offset, codePoint) = readCodePoint(str, 0);
+        if (codePoint == 0) {
+            return false;
         }
 
+        str = str.substr(offset);
+    }
+
+    return true;
+}
+
+size_t GetLength(StringView str)
+{
+    size_t length = 0;
+    char32_t codePoint = 0;
+
+    size_t offset = 0;
+    while (!str.empty()) {
+        std::tie(offset, codePoint) = readCodePoint(str, 0);
+        if (codePoint == 0) {
+            return StringView::npos;
+        }
+
+        str = str.substr(offset);
         ++length;
     }
 
     return length;
 }
 
-std::optional<U32String> ToUTF32(StringView str)
+U32String ToUTF32(StringView str, char32_t replace /*= ReplacementCharacter*/)
 {
     U32String u32str;
-    char32_t codePoint;
+    char32_t codePoint = 0;
 
     size_t offset = 0;
     while (offset < str.size()) {
-        std::tie(offset, codePoint) = nextCodePoint(str, offset);
-
-        if (offset == 0) {
-            return {};
-        }
-        
+        std::tie(offset, codePoint) = readCodePoint(str, replace);
         u32str.push_back(codePoint);
+        str = str.substr(offset);
     }
 
     return u32str;
@@ -104,70 +155,44 @@ String ToUTF8(U32StringView u32str)
     String str;
 
     for (char32_t codePoint : u32str) {
-        if (codePoint <= 0x7F) {
-            str.push_back(codePoint);
-        }
-        else if (codePoint <= 0x7FF) {
-            str.push_back(
-                0b11000000 || (codePoint & 0b00011111)
-            );
-            str.push_back(
-                0b10000000 || ((codePoint >> 5) & 0b00111111)
-            );
-        }
-        else if (codePoint <= 0xFFFF) {
-            str.push_back(
-                0b11100000 || (codePoint & 0b00001111)
-            );
-            str.push_back(
-                0b10000000 || ((codePoint >> 4) & 0b00111111)
-            );
-            str.push_back(
-                0b10000000 || ((codePoint >> 10) & 0b00111111)
-            );
-        }
-        else {
-            // TODO: Validate maximum UTF32 value of 0x10FFFF
-            str.push_back(
-                0b11110000 || (codePoint & 0b00000111)
-            );
-            str.push_back(
-                0b10000000 || ((codePoint >> 3) & 0b00111111)
-            );
-            str.push_back(
-                0b10000000 || ((codePoint >> 9) & 0b00111111)
-            );
-            str.push_back(
-                0b10000000 || ((codePoint >> 15) & 0b00111111)
-            );
-        }
+        writeCodePoint(str, codePoint);
     }
 
     return str;
 }
 
-#include "UTF.CaseMapping.h"
+#include "UTF.CaseFolding.h"
 
-char32_t ToLower(char32_t codePoint)
+RYME_API
+String CaseFold(StringView str)
 {
-    for (const auto& mapping : _caseMapping) {
-        if (mapping.Uppercase == codePoint) {
-            return mapping.Lowercase;
-        }
-    }
-
-    return codePoint;
+    return ToUTF8(CaseFold(ToUTF32(str)));
 }
 
-char32_t ToUpper(char32_t codePoint)
+RYME_API
+U32String CaseFold(U32StringView u32str)
 {
-    for (const auto& mapping : _caseMapping) {
-        if (mapping.Lowercase == codePoint) {
-            return mapping.Uppercase;
+    U32String folded;
+    folded.reserve(u32str.size());
+
+    bool found;
+    for (auto& c : u32str) {
+        found = false;
+
+        for (const auto& mapping : _caseFoldMapping) {
+            if (mapping.Uppercase == c) {
+                found = true;
+
+                folded.append(mapping.Lowercase);
+            }
+        }
+
+        if (!found) {
+            folded.push_back(c);
         }
     }
 
-    return codePoint;
+    return folded;
 }
 
 #if defined(RYME_PLATFORM_WINDOWS)
