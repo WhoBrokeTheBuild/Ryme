@@ -14,6 +14,8 @@
 
 namespace ryme {
 
+// TODO: Expand to include all template arguments
+
 template <class T, size_t N>
 using Array = std::array<T, N>;
 

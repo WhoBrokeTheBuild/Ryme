@@ -82,7 +82,9 @@ TARGET_LINK_LIBRARIES(
         SDL2::SDL2
         Python3::Python
         pybind11::headers
+        nlohmann_json::nlohmann_json
         Vulkan::Vulkan
+        spirv-cross-core
 )
 
 TARGET_INCLUDE_DIRECTORIES(

@@ -9,14 +9,16 @@ IF(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     SET(_binary_dir ${CMAKE_BINARY_DIR}/ThirdParty)
 
     # Set *_ROOT variables for config-based packages
-    SET(glm_ROOT        ${_binary_dir}/glm/cmake PARENT_SCOPE)
-    SET(fmt_ROOT        ${_binary_dir}/fmt       PARENT_SCOPE)
-    SET(SDL2_ROOT       ${_binary_dir}/SDL2      PARENT_SCOPE)
-    SET(pybind11_ROOT   ${_binary_dir}/pybind11  PARENT_SCOPE)
+    SET(glm_ROOT ${_binary_dir}/glm/cmake PARENT_SCOPE)
+    SET(fmt_ROOT ${_binary_dir}/fmt PARENT_SCOPE)
+    SET(SDL2_ROOT ${_binary_dir}/SDL2 PARENT_SCOPE)
+    SET(pybind11_ROOT ${_binary_dir}/pybind11 PARENT_SCOPE)
+    SET(nlohmann_json_ROOT ${_binary_dir}/nlohmann_json PARENT_SCOPE)
 
     # Set CMAKE_PREFIX_PATH for find-based packages
     LIST(APPEND CMAKE_PREFIX_PATH
         ${_binary_dir}/GTest
+        ${_binary_dir}/spirv_cross
     )
     SET(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} PARENT_SCOPE)
 
@@ -53,7 +55,7 @@ IF(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         MESSAGE(SEND_ERROR "${_result}")
         MESSAGE(FATAL_ERROR "Failed to build ThirdParty projects")
     ENDIF()
-    
+
 ELSE()
 
     LIST(PREPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../CMake")
@@ -175,12 +177,69 @@ ELSE()
     ENDIF()
 
     ###
+    ### nlohmann_json
+    ###
+
+    SET(nlohmann_json_ROOT       ${CMAKE_BINARY_DIR}/nlohmann_json)
+    SET(nlohmann_json_SOURCE_DIR ${CMAKE_BINARY_DIR}/nlohmann_json_src)
+
+    FIND_PACKAGE(nlohmann_json CONFIG QUIET)
+
+    IF(NOT nlohmann_json_FOUND)
+        ExternalProject_Add(
+            ThirdParty_nlohmann_json
+            URL                 "https://github.com/nlohmann/json/archive/refs/tags/v3.10.4.zip"
+            URL_HASH            MD5=59c2a25e17b94d612fdb32a1a37378cf
+            SOURCE_DIR          ${nlohmann_json_SOURCE_DIR}
+            CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${nlohmann_json_ROOT}
+                                -DJSON_BuildTests=OFF
+            BUILD_COMMAND       ""
+            UPDATE_COMMAND      ""
+        )
+    ENDIF()
+
+    ###
+    ### SPIRV-Cross
+    ###
+
+    SET(spirv_cross_ROOT       ${CMAKE_BINARY_DIR}/spirv_cross)
+    SET(spirv_cross_SOURCE_DIR ${CMAKE_BINARY_DIR}/spirv_cross_src)
+    SET(spirv_cross_BINARY_DIR ${CMAKE_BINARY_DIR}/spirv_cross_bin)
+    
+    LIST(APPEND CMAKE_PREFIX_PATH
+        ${spirv_cross_ROOT}
+    )
+
+    FIND_PACKAGE(spirv_cross_core CONFIG QUIET)
+
+    IF(NOT spirv_cross_core_FOUND)
+        ExternalProject_Add(
+            ThirdParty_spirv_cross
+            # GIT_REPOSITORY      "https://github.com/KhronosGroup/SPIRV-Cross.git"
+            URL                 "https://github.com/KhronosGroup/SPIRV-Cross/archive/refs/tags/2021-01-15.zip"
+            URL_HASH            MD5=d813e93e27589119cc1bf0e68a036031
+            SOURCE_DIR          ${spirv_cross_SOURCE_DIR}
+            BINARY_DIR          ${spirv_cross_BINARY_DIR}
+            CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${spirv_cross_ROOT}
+                                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            BUILD_COMMAND       ""
+            UPDATE_COMMAND      ""
+            TEST_COMMAND        ""
+            INSTALL_COMMAND     ${CMAKE_COMMAND} --build . --target install
+        )
+    ENDIF()
+
+    ###
     ### GTest
     ###
 
     SET(GTEST_ROOT       ${CMAKE_BINARY_DIR}/GTest)
     SET(GTEST_SOURCE_DIR ${CMAKE_BINARY_DIR}/GTest_src)
     SET(GTEST_BINARY_DIR ${CMAKE_BINARY_DIR}/GTest_bin)
+    
+    LIST(APPEND CMAKE_PREFIX_PATH
+        ${GTEST_ROOT}
+    )
 
     SET(GTEST_MSVC_SEARCH "MD")
     FIND_PACKAGE(GTest QUIET)

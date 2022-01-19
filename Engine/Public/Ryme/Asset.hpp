@@ -7,11 +7,6 @@ class RYME_API Asset
 {
 public:
 
-    virtual ~Asset()
-    {
-        Free();
-    }
-
     virtual void Free() { }
 
     virtual bool IsLoaded() const

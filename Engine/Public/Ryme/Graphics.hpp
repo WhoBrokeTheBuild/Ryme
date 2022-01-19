@@ -22,6 +22,8 @@ extern vk::Device Device;
 
 extern vma::Allocator Allocator;
 
+extern vk::RenderPass RenderPass;
+
 RYME_API
 void ScriptInit(py::module);
 

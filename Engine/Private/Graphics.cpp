@@ -101,13 +101,11 @@ vk::ImageView _depthImageView;
 
 // Render Pass
 
-VkRenderPass _renderPass = VK_NULL_HANDLE;
+vk::RenderPass RenderPass;
 
 // Descriptor Pool
 
-VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-
-List<VkDescriptorSetLayout> _descriptorSetLayoutList;
+vk::DescriptorPool _descriptorPool;
 
 // Sync Objects
 
@@ -627,6 +625,76 @@ void initDepthBuffer()
     _depthImageView = Device.createImageView(imageViewCreateInfo);
 }
 
+void initRenderPass()
+{
+    auto colorAttachmentDescription = vk::AttachmentDescription()
+        .setFormat(_swapChainImageFormat)
+        .setSamples(vk::SampleCountFlagBits::e1)
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore)
+        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+        .setInitialLayout(vk::ImageLayout::eUndefined)
+        .setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+    auto colorAttachmentReference = vk::AttachmentReference()
+        .setAttachment(0)
+        .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
+
+    auto depthAttachmentDescription = vk::AttachmentDescription()
+        .setFormat(_depthImageFormat)
+        .setSamples(vk::SampleCountFlagBits::e1)
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+        .setInitialLayout(vk::ImageLayout::eUndefined)
+        .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+    auto depthAttachmentReference = vk::AttachmentReference()
+        .setAttachment(1)
+        .setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+    auto subpassDescription = vk::SubpassDescription()
+        .setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+        .setColorAttachmentCount(1)
+        .setPColorAttachments(&colorAttachmentReference)
+        .setPDepthStencilAttachment(&depthAttachmentReference);
+
+    auto subpassDependency = vk::SubpassDependency()
+        .setSrcSubpass(VK_SUBPASS_EXTERNAL)
+        .setDstSubpass(0)
+        .setSrcStageMask(
+            vk::PipelineStageFlagBits::eColorAttachmentOutput |
+            vk::PipelineStageFlagBits::eEarlyFragmentTests
+        )
+        .setDstStageMask(
+            vk::PipelineStageFlagBits::eColorAttachmentOutput |
+            vk::PipelineStageFlagBits::eEarlyFragmentTests
+        )
+        .setSrcAccessMask({})
+        .setDstAccessMask(
+            vk::AccessFlagBits::eColorAttachmentWrite |
+            vk::AccessFlagBits::eDepthStencilAttachmentWrite
+        );
+
+    Array<vk::AttachmentDescription, 2> attachmentList = {
+        colorAttachmentDescription,
+        depthAttachmentDescription,
+    };
+
+    Device.destroyRenderPass(RenderPass);
+
+    auto renderPassCreateInfo = vk::RenderPassCreateInfo()
+        .setAttachments(attachmentList)
+        .setSubpassCount(1)
+        .setPSubpasses(&subpassDescription)
+        .setDependencyCount(1)
+        .setPDependencies(&subpassDependency);
+
+    RenderPass = Device.createRenderPass(renderPassCreateInfo);
+}
+
 void initUniformBuffers()
 {
     Buffer shaderGlobalsBuffer;
@@ -641,7 +709,9 @@ void initUniformBuffers()
 
 void initCommandBufferList()
 {
-    Device.freeCommandBuffers(_commandPool, _commandBufferList);
+    if (!_commandBufferList.empty()) {
+        Device.freeCommandBuffers(_commandPool, _commandBufferList);
+    }
 
     Device.destroyCommandPool(_commandPool);
 
@@ -660,6 +730,8 @@ void initCommandBufferList()
 
 void initSwapChain()
 {
+    RYME_BENCHMARK_START();
+
     vkDeviceWaitIdle(Device);
 
 #pragma region Image Format
@@ -827,11 +899,11 @@ void initSwapChain()
 #pragma endregion
 
     initDepthBuffer();
-    // initRenderPass();
-    // initPipeline();
+    initRenderPass();
     // initFramebufferList();
     initCommandBufferList();
 
+    RYME_BENCHMARK_END();
 }
 
 RYME_API
@@ -862,6 +934,8 @@ void Term()
     Device.freeCommandBuffers(_commandPool, _commandBufferList);
 
     Device.destroyCommandPool(_commandPool);
+
+    Device.destroyRenderPass(RenderPass);
 
     Device.destroyImageView(_depthImageView);
     

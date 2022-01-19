@@ -8,7 +8,7 @@ namespace ryme {
 
 struct RYME_API ShaderGlobals
 {
-    inline static const uint32_t Binding = 0;
+    static inline const uint32_t Binding = 0;
 
     // Viewport resolution (in pixels)
     alignas(8) Vec2 Resolution;

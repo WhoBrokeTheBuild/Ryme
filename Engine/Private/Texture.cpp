@@ -12,6 +12,11 @@ Texture::Texture(const Path& path, vk::SamplerCreateInfo samplerCreateInfo /*= {
     LoadFromFile(path, samplerCreateInfo, search);
 }
 
+Texture::~Texture()
+{
+    Free();
+}
+
 bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreateInfo /*= {}*/, bool search /*= true*/)
 {
     int width;

@@ -15,6 +15,8 @@ public:
 
     Texture(const Path& path, vk::SamplerCreateInfo samplerCreateInfo = {}, bool search = true);
 
+    virtual ~Texture();
+
     bool LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreateInfo = {}, bool search = true);
 
     void Free() override;

@@ -10,7 +10,7 @@ struct RYME_API ShaderTransform
 {
 public:
 
-    inline static const uint32_t Binding = 1;
+    static inline const uint32_t Binding = 1;
 
     // The Model Matrix
     alignas(4) Mat4 Model;

@@ -14,7 +14,11 @@ class RYME_API Shader : public Asset
 {
 public:
 
+    Shader() = default;
+
     Shader(const List<Path>& pathList, bool search = true);
+
+    virtual ~Shader();
 
     bool LoadFromFiles(const List<Path>& pathList, bool search = true);
 
@@ -26,6 +30,14 @@ public:
         return true;
     }
 
+    inline List<vk::PipelineShaderStageCreateInfo>& GetShaderStageList() {
+        return _shaderStageCreateInfoList;
+    }
+    
+    inline vk::PipelineLayout& GetPipelineLayout() {
+        return _pipelineLayout;
+    }
+
 private:
 
     bool LoadSPV(const Path& path, bool search);
@@ -34,7 +46,17 @@ private:
 
     List<vk::ShaderModule> _shaderModuleList;
 
+    List<String> _entryPointNameList;
+
     List<vk::PipelineShaderStageCreateInfo> _shaderStageCreateInfoList;
+
+    List<List<vk::DescriptorSetLayoutBinding>> _descriptorSetLayoutBindingListList;
+
+    List<vk::PushConstantRange> _pushConstantRangeList;
+
+    List<vk::DescriptorSetLayout> _descriptorSetLayoutList;
+
+    vk::PipelineLayout _pipelineLayout;
 
 }; // class Shader
 
