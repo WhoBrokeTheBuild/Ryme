@@ -20,7 +20,7 @@ extern vk::Instance Instance;
 
 extern vk::Device Device;
 
-extern vma::Allocator Allocator;
+extern VmaAllocator Allocator;
 
 extern vk::RenderPass RenderPass;
 
@@ -44,6 +44,20 @@ void SetWindowSize(Vec2i windowSize);
 
 RYME_API
 Vec2i GetWindowSize();
+
+RYME_API
+Tuple<vk::Buffer, VmaAllocation> CreateBuffer(
+    vk::BufferCreateInfo& bufferCreateInfo,
+    VmaAllocationCreateInfo& allocationCreateInfo,
+    VmaAllocationInfo * allocationInfo = nullptr
+);
+
+RYME_API
+Tuple<vk::Image, VmaAllocation> CreateImage(
+    vk::ImageCreateInfo& imageCreateInfo,
+    VmaAllocationCreateInfo& allocationCreateInfo,
+    VmaAllocationInfo * allocationInfo = nullptr
+);
 
 RYME_API
 void CopyBuffer(vk::Buffer src, vk::Buffer dst, vk::BufferCopy region);

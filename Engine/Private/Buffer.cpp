@@ -9,50 +9,52 @@ Buffer::~Buffer()
     Destroy();
 }
 
-void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bufferUsage, vma::MemoryUsage memoryUsage)
+void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlagBits bufferUsage, VmaMemoryUsage memoryUsage)
 {
-    VkResult vkResult;
-
     _size = size;
     _bufferUsage = bufferUsage;
     _memoryUsage = memoryUsage;
 
-    // If we are uploading to a GPU only buffer, we need to use a staging buffer
-    if (_memoryUsage == vma::MemoryUsage::eGpuOnly) {
+    if (_memoryUsage == VMA_MEMORY_USAGE_GPU_ONLY) {
         if (!data) {
             throw Exception("Attempting to create a GPU only buffer with no data");
         }
 
         auto stagingBufferCreateInfo = vk::BufferCreateInfo()
             .setSize(_size)
-            .setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+            .setUsage(vk::BufferUsageFlagBits::eTransferSrc)
+            .setSharingMode(vk::SharingMode::eExclusive);
         
-        auto stagingAllocationCreateInfo = vma::AllocationCreateInfo()
-            .setFlags(vma::AllocationCreateFlagBits::eMapped)
-            .setUsage(vma::MemoryUsage::eCpuOnly);
+        auto stagingAllocationCreateInfo = VmaAllocationCreateInfo{
+            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_CPU_ONLY,
+        };
 
-        vma::AllocationInfo stagingAllocationInfo;
+        VmaAllocationInfo stagingAllocationInfo;
 
-        auto[stagingBuffer, stagingAllocation] = Graphics::Allocator.createBuffer(
+        auto[stagingBuffer, stagingAllocation] = Graphics::CreateBuffer(
             stagingBufferCreateInfo,
             stagingAllocationCreateInfo,
-            stagingAllocationInfo
+            &stagingAllocationInfo
         );
 
         memcpy(stagingAllocationInfo.pMappedData, data, _size);
 
-        vk::BufferUsageFlags dstBufferUsage = vk::BufferUsageFlagBits::eTransferDst | _bufferUsage;
-
         auto bufferCreateInfo = vk::BufferCreateInfo()
             .setSize(_size)
-            .setUsage(dstBufferUsage);
+            .setUsage(vk::BufferUsageFlagBits::eTransferDst | _bufferUsage)
+            .setSharingMode(vk::SharingMode::eExclusive);
 
-        auto allocationCreateInfo = vma::AllocationCreateInfo()
-            .setUsage(_memoryUsage);
+        auto allocationCreateInfo = VmaAllocationCreateInfo{
+            .usage = _memoryUsage,
+        };
+        
+        VmaAllocationInfo allocationInfo;
 
-        std::tie(_buffer, _allocation) = Graphics::Allocator.createBuffer(
+        std::tie(_buffer, _allocation) = Graphics::CreateBuffer(
             bufferCreateInfo,
-            allocationCreateInfo
+            allocationCreateInfo,
+            &allocationInfo
         );
 
         auto region = vk::BufferCopy()
@@ -60,8 +62,8 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bu
 
         Graphics::CopyBuffer(stagingBuffer, _buffer, region);
 
-        Graphics::Allocator.freeMemory(stagingAllocation);
-
+        vmaFreeMemory(Graphics::Allocator, stagingAllocation);
+        
         Graphics::Device.destroyBuffer(stagingBuffer);
     }
     else {
@@ -69,16 +71,17 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bu
             .setSize(_size)
             .setUsage(_bufferUsage);
 
-        auto allocationCreateInfo = vma::AllocationCreateInfo()
-            .setFlags(vma::AllocationCreateFlagBits::eMapped)
-            .setUsage(_memoryUsage);
+        auto allocationCreateInfo = VmaAllocationCreateInfo{
+            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = _memoryUsage,
+        };
         
-        vma::AllocationInfo allocationInfo;
+        VmaAllocationInfo allocationInfo;
 
-        std::tie(_buffer, _allocation) = Graphics::Allocator.createBuffer(
+        std::tie(_buffer, _allocation) = Graphics::CreateBuffer(
             bufferCreateInfo,
             allocationCreateInfo,
-            allocationInfo
+            &allocationInfo
         );
 
         _mappedBufferMemory = reinterpret_cast<uint8_t *>(allocationInfo.pMappedData);
@@ -91,19 +94,21 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bu
 
 void Buffer::Destroy()
 {
-    Graphics::Allocator.unmapMemory(_allocation);
+    _size = 0;
+
+    vmaUnmapMemory(Graphics::Allocator, _allocation);
     _mappedBufferMemory = nullptr;
 
     Graphics::Device.destroyBuffer(_buffer);
+    _buffer = nullptr;
 
-    Graphics::Allocator.freeMemory(_allocation);
-
-    _size = 0;
+    vmaFreeMemory(Graphics::Allocator, _allocation);
+    _allocation = nullptr;
 }
 
 void Buffer::ReadFrom(size_t offset, size_t length, uint8_t * data)
 {
-    assert(_memoryUsage == vma::MemoryUsage::eGpuToCpu);
+    assert(_memoryUsage == VMA_MEMORY_USAGE_GPU_TO_CPU);
     assert(_mappedBufferMemory);
 
     memcpy(data, _mappedBufferMemory + offset, length);
@@ -111,8 +116,8 @@ void Buffer::ReadFrom(size_t offset, size_t length, uint8_t * data)
 
 void Buffer::WriteTo(size_t offset, size_t length, uint8_t * data)
 {
-    assert(_memoryUsage == vma::MemoryUsage::eCpuOnly
-        || _memoryUsage == vma::MemoryUsage::eCpuToGpu);
+    assert(_memoryUsage == VMA_MEMORY_USAGE_CPU_ONLY
+        || _memoryUsage == VMA_MEMORY_USAGE_CPU_TO_GPU);
     assert(_mappedBufferMemory);
 
     memcpy(_mappedBufferMemory + offset, data, length);

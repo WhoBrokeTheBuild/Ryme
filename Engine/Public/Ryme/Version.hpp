@@ -33,8 +33,6 @@ struct RYME_API Version
     ///
     int Patch;
 
-    static void ScriptInit(py::module);
-
     ///
     /// Construct a Version from three components
     ///
@@ -53,7 +51,7 @@ struct RYME_API Version
     ///
     Version(const String& str)
     {
-        ParseString(str);
+        FromString(str);
     }
 
     Version(const Version& rhs)
@@ -111,11 +109,6 @@ struct RYME_API Version
             Major, Minor, Patch);
     }
 
-    inline operator String() const
-    {
-        return ToString();
-    }
-
     inline uint32_t ToVkVersion() const
     {
         return VK_MAKE_VERSION(Major, Minor, Patch);
@@ -124,46 +117,17 @@ struct RYME_API Version
     ///
     /// Parse a Version from a string in format major.minor.patch
     ///
-    inline void ParseString(const String& string)
-    {
-        std::smatch match;
-        std::regex regex("([0-9])+\\.([0-9]+)\\.([0-9]+)");
-        std::regex_search(string, match, regex);
-
-        if (match.size() == 4) {
-            Patch = std::strtol(match[3].str().c_str(), nullptr, 10);
-            Minor = std::strtol(match[2].str().c_str(), nullptr, 10);
-            Major = std::strtol(match[1].str().c_str(), nullptr, 10);
-        }
-    }
+    inline void FromString(const String& string);
 
     ///
     /// Compare two versions in order of Major, then Minor, then Patch
     ///
     /// @returns 0 if a == b, 1 if a > b, or -1 if a < b
     ///
-    inline static int Compare(const Version& a, const Version& b)
-    {
-        auto cmp = [](int a, int b)
-        {
-            if (a == b) {
-                return 0;
-            }
-            if (a > b) {
-                return 1;
-            }
-            return -1;
-        };
+    static int Compare(const Version& a, const Version& b);
 
-        int result = cmp(a.Major, b.Major);
-        if (result == 0) {
-            result = cmp(a.Minor, b.Minor);
-            if (result == 0) {
-                result = cmp(a.Patch, b.Patch);
-            }
-        }
-        return result;
-    }
+
+    static void ScriptInit(py::module);
 
 }; // struct Version
 

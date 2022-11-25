@@ -216,8 +216,8 @@ ELSE()
         ExternalProject_Add(
             ThirdParty_spirv_cross
             # GIT_REPOSITORY      "https://github.com/KhronosGroup/SPIRV-Cross.git"
-            URL                 "https://github.com/KhronosGroup/SPIRV-Cross/archive/refs/tags/2021-01-15.zip"
-            URL_HASH            MD5=d813e93e27589119cc1bf0e68a036031
+            URL                 "https://codeload.github.com/KhronosGroup/SPIRV-Cross/zip/refs/tags/sdk-1.3.231.1"
+            URL_HASH            MD5=2a9d91e7bbecf00731806e94f1569400
             SOURCE_DIR          ${spirv_cross_SOURCE_DIR}
             BINARY_DIR          ${spirv_cross_BINARY_DIR}
             CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${spirv_cross_ROOT}

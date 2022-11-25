@@ -16,12 +16,12 @@ int main(int argc, char ** argv)
         fflush(stdout);
 
         Run();
-
-        Term();
     }
     catch (const std::exception& e) {
         Log("Exception", "{}", e.what());
     }
+    
+    Term();
 
     fflush(stdout);
 

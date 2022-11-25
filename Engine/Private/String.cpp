@@ -16,7 +16,26 @@ List<String> Split(StringView str, String delim)
     return strList;
 }
 
-String Join(List<String> strList, String delim /*= {}*/)
+String Join(List<String> strList, String delim)
+{
+    size_t totalSize = 0;
+    for (const auto& str : strList) {
+        totalSize += str.size() + delim.size();
+    }
+
+    String result;
+    result.reserve(totalSize);
+
+    for (const auto& str : strList) {
+        result += str;
+        result += delim;
+    }
+
+    return result;
+}
+
+RYME_API
+String Join(List<StringView> strList, StringView delim)
 {
     size_t totalSize = 0;
     for (const auto& str : strList) {

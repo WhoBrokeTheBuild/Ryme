@@ -51,7 +51,10 @@ RYME_API
 List<String> Split(StringView str, String delim);
 
 RYME_API
-String Join(List<String> strList, String delim = {});
+String Join(List<String> strList, String delim);
+
+RYME_API
+String Join(List<StringView> strList, StringView delim);
 
 } // namespace ryme
 

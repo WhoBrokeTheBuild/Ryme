@@ -34,7 +34,7 @@ public:
 
 private:
 
-    bool LoadGLTF(const Path& path, bool search);
+    bool LoadGLTF2(const Path& path, bool search);
 
     bool LoadOBJ(const Path& path, bool search);
 

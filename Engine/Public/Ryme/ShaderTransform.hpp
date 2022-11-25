@@ -13,16 +13,16 @@ public:
     static inline const uint32_t Binding = 1;
 
     // The Model Matrix
-    alignas(4) Mat4 Model;
+    alignas(64) Mat4 Model;
     
     // The View Matrix
-    alignas(4) Mat4 View;
+    alignas(64) Mat4 View;
     
     // The Projection Matrix
-    alignas(4) Mat4 Projection;
+    alignas(64) Mat4 Projection;
 
     // Projection * View * Model    
-    alignas(4) Mat4 MVP;
+    alignas(64) Mat4 MVP;
 
     inline void UpdateMVP()
     {

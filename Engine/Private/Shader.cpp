@@ -44,11 +44,6 @@ bool Shader::LoadFromFiles(const List<Path>& pathList, bool search /*= true*/)
         .setPushConstantRanges(_pushConstantRangeList);
 
     _pipelineLayout = Graphics::Device.createPipelineLayout(pipelineLayoutCreateInfo);
-    
-    // If this is done in LoadSPV, the c_str gets moved when the vector resizes
-    for (size_t i = 0; i < _shaderStageCreateInfoList.size(); ++i) {
-        _shaderStageCreateInfoList[i].pName = _entryPointNameList[i].c_str();
-    }
 
     _isLoaded = true;
     return true;
@@ -68,6 +63,9 @@ void Shader::Free()
 
     Graphics::Device.destroyPipelineLayout(_pipelineLayout);
 
+    for (char * entryPointName : _entryPointNameList) {
+        free(entryPointName);
+    }
     _entryPointNameList.clear();
 
     _shaderStageCreateInfoList.clear();
@@ -89,6 +87,8 @@ bool Shader::Reload()
 
 bool Shader::LoadSPV(const Path& path, bool search)
 {
+    vk::Result vkResult;
+
     std::ifstream file;
     Path fullPath = path;
 
@@ -96,14 +96,14 @@ bool Shader::LoadSPV(const Path& path, bool search)
         for (const auto& assetPath : GetAssetPathList()) {
             fullPath = assetPath / path;
 
-            file.open(fullPath, std::ios::binary);
+            file.open(fullPath.ToString(), std::ios::binary);
             if (file.is_open()) {
                 break;
             }
         }
     }
     else {
-        file.open(path, std::ios::binary);
+        file.open(path.ToString(), std::ios::binary);
     }
 
     if (!file.is_open()) {
@@ -156,12 +156,14 @@ bool Shader::LoadSPV(const Path& path, bool search)
 
     _shaderModuleList.push_back(shaderModule);
 
-    _entryPointNameList.push_back(entryPointStage.name);
+    // TODO: Improve
+    char * entryPointName = strdup(entryPointStage.name.c_str());
+    _entryPointNameList.push_back(entryPointName);
 
     auto shaderStageCreateInfo = vk::PipelineShaderStageCreateInfo()
         .setStage(stage)
         .setModule(shaderModule)
-        .setPName(_entryPointNameList.back().c_str())
+        .setPName(entryPointName)
         // .setPName("main")
         .setPSpecializationInfo(nullptr);
 
@@ -260,6 +262,7 @@ bool Shader::LoadSPV(const Path& path, bool search)
             );
         }
         else {
+            // TODO: Improve
             _pushConstantRangeList.front().stageFlags |= stage;
         }
     }

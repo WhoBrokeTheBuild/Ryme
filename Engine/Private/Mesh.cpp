@@ -21,7 +21,7 @@ bool Mesh::LoadFromFile(const Path& path, bool search /*= true*/)
         LoadOBJ(path, search);
     }
     else if (ext == ".gltf" || ext == ".glb") {
-        LoadGLTF(path, search);
+        LoadGLTF2(path, search);
     }
     else {
         throw Exception("Unknown Mesh file format '{}'", ext);
@@ -33,23 +33,12 @@ bool Mesh::LoadFromFile(const Path& path, bool search /*= true*/)
 
 void Mesh::Free()
 {
-
     _isLoaded = false;
 }
 
 bool Mesh::Reload()
 {
     LoadFromFile(_path, false);
-    return true;
-}
-
-bool Mesh::LoadGLTF(const Path& path, bool search)
-{
-    return true;
-}
-
-bool Mesh::LoadOBJ(const Path& path, bool search)
-{
     return true;
 }
 

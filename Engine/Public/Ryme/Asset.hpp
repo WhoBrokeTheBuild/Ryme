@@ -2,8 +2,11 @@
 #define RYME_ASSET_HPP
 
 #include <Ryme/Config.hpp>
+#include <Ryme/NonCopyable.hpp>
 
-class RYME_API Asset
+namespace ryme {
+
+class RYME_API Asset : public NonCopyable
 {
 public:
 
@@ -41,5 +44,7 @@ protected:
     bool _isLoaded = false;
 
 }; // class Asset
+
+} // namespace ryme
 
 #endif // RYME_ASSET_HPP

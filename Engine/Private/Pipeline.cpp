@@ -77,7 +77,7 @@ void Pipeline::Create()
         .setViewportCount(1)
         .setScissorCount(1);
 
-    List<vk::DynamicState> dynamicStateList = {
+    Array<vk::DynamicState, 2> dynamicStateList = {
         vk::DynamicState::eViewport,
         vk::DynamicState::eScissor,
     };
@@ -109,12 +109,12 @@ void Pipeline::Create()
         
     Free();
 
-    vk::Result result;
-    std::tie(result, _pipeline) = Graphics::Device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
-    // Result could also be vk::Result::ePipelineCompileRequiredEXT
-    if (result != vk::Result::eSuccess) {
-        vk::throwResultException(result, "vk::Device::createGraphicsPipeline");
-    }
+    vk::Result vkResult;
+    std::tie(vkResult, _pipeline) = Graphics::Device.createGraphicsPipeline(nullptr, pipelineCreateInfo);
+
+    vk::resultCheck(vkResult, "vk::Device::createGraphicsPipeline",
+        { vk::Result::eSuccess, vk::Result::ePipelineCompileRequired }
+    );
 }
 
 void Pipeline::Free()

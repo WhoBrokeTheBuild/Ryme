@@ -47,10 +47,6 @@ public:
         return _path.c_str();
     }
 
-    inline operator String() const {
-        return _path;
-    }
-
     inline bool IsEmpty() const {
         return _path.empty();
     }
@@ -111,7 +107,7 @@ public:
     }
 
     inline Path GetStem() const {
-        String filename = GetFilename();
+        String filename = GetFilename().ToString();
         size_t pivot = filename.find_last_of('.');
         return (
             pivot == 0 || pivot == String::npos
@@ -121,7 +117,7 @@ public:
     }
 
     inline Path GetExtension() const {
-        String filename = GetFilename();
+        String filename = GetFilename().ToString();
         size_t pivot = filename.find_last_of('.');
         return (
             pivot == 0 || pivot == String::npos

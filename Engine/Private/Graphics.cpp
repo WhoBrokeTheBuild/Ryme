@@ -11,7 +11,7 @@
 RYME_DISABLE_WARNINGS()
 
     #define VMA_IMPLEMENTATION
-    #include <vk_mem_alloc.h>
+    #include <vma/vk_mem_alloc.h>
 
 RYME_ENABLE_WARNINGS()
 
@@ -31,7 +31,7 @@ String _windowTitle;
 
 // Vulkan Instance
 
-List<vk::LayerProperties> _availableInstanceLayerList;
+List<vk::LayerProperties> _availableLayerList;
 
 List<vk::ExtensionProperties> _availableInstanceExtensionList;
 
@@ -69,7 +69,7 @@ vk::Device Device;
 
 // Vulkan Memory Allocator
 
-vma::Allocator Allocator;
+VmaAllocator Allocator;
 
 // Vulkan Command Buffer
 
@@ -95,7 +95,7 @@ vk::Format _depthImageFormat;
 
 vk::Image _depthImage;
 
-vma::Allocation _depthImageAllocation;
+VmaAllocation _depthImageAllocation;
 
 vk::ImageView _depthImageView;
 
@@ -119,7 +119,7 @@ List<VkFence> _imageInFlightList;
 
 inline bool hasInstanceLayer(StringView name)
 {
-    for (const auto& layer : _availableInstanceLayerList) {
+    for (const auto& layer : _availableLayerList) {
         if (layer.layerName == name) {
             return true;
         }
@@ -232,10 +232,11 @@ void initWindow()
 
 void initInstance()
 {
+    vk::Result vkResult;
 
-#pragma region Layers
+    // Layers
 
-    _availableInstanceLayerList = vk::enumerateInstanceLayerProperties();
+    _availableLayerList = vk::enumerateInstanceLayerProperties();
 
     List<const char *> requiredLayerNameList = { };
     
@@ -244,17 +245,16 @@ void initInstance()
     }
     
     Log(RYME_ANCHOR, "Available Vulkan Layers:");
-    for (const auto& layer : _availableInstanceLayerList) {
+    for (const auto& layer : _availableLayerList) {
         Log(RYME_ANCHOR, "\t{}: {}", layer.layerName, layer.description);
     }
 
-    Log(RYME_ANCHOR, "Required Vulkan Device Layers:");
+    Log(RYME_ANCHOR, "Required Vulkan Layers:");
     for (const auto& layer : requiredLayerNameList) {
         Log(RYME_ANCHOR, "\t{}", layer);
     }
 
-#pragma endregion
-#pragma region Extensions
+    // Extensions
 
     _availableInstanceExtensionList = vk::enumerateInstanceExtensionProperties();
 
@@ -290,8 +290,7 @@ void initInstance()
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-#pragma endregion
-#pragma region Application Info
+    // Application Info
 
     const auto& applicationName = GetApplicationName();
     const auto& applicationVersion = GetApplicationVersion();
@@ -304,8 +303,7 @@ void initInstance()
         .setEngineVersion(engineVersion.ToVkVersion())
         .setApiVersion(VK_API_VERSION_1_1);
 
-#pragma endregion
-#pragma region Instance
+    // Instance
     
     auto instanceCreateInfo = vk::InstanceCreateInfo()
         .setPApplicationInfo(&applicationInfo)
@@ -343,8 +341,7 @@ void initInstance()
         VK_VERSION_PATCH(VK_HEADER_VERSION_COMPLETE)
     );
 
-#pragma endregion
-#pragma region Debug Utils Messenger
+    // Debug Utils Messenger
 
     #if defined(VK_EXT_debug_utils)
 
@@ -353,8 +350,6 @@ void initInstance()
         }
 
     #endif
-
-#pragma endregion
 
 }
 
@@ -373,8 +368,9 @@ void initSurface()
 
 void initDevice()
 {
+    vk::Result vkResult;
 
-#pragma region Physical Device
+    // Physical Device
 
     // TODO: Allow user to choose GPU
 
@@ -409,18 +405,16 @@ void initDevice()
         VK_VERSION_PATCH(_physicalDeviceProperties.apiVersion)
     );
 
-#pragma endregion
-#pragma region Queues
+    // Queues
 
     _graphicsQueueFamilyIndex = UINT32_MAX;
     _presentQueueFamilyIndex = UINT32_MAX;
 
     auto queueFamilyPropertyList = _physicalDevice.getQueueFamilyProperties();
 
-    uint32_t index = 0;
-
     Log(RYME_ANCHOR, "Available Vulkan Queue Families:");
 
+    uint32_t index = 0;
     for (const auto& properties : queueFamilyPropertyList) {
         auto hasPresent = _physicalDevice.getSurfaceSupportKHR(index, _surface);
         bool hasGraphics = (properties.queueFlags & vk::QueueFlagBits::eGraphics ? true : false);
@@ -473,12 +467,14 @@ void initDevice()
     List<vk::DeviceQueueCreateInfo> queueCreateInfoList;
     for (auto index : queueFamilyIndexSet) {
         queueCreateInfoList.push_back(
-            vk::DeviceQueueCreateInfo({}, index, 1, &queuePriorities)
+            vk::DeviceQueueCreateInfo()
+                .setQueueFamilyIndex(index)
+                .setQueueCount(1)
+                .setPQueuePriorities(&queuePriorities)
         );
     }
 
-#pragma endregion
-#pragma region Extensions
+    // Extensions
 
     _availableDeviceExtensionList = _physicalDevice.enumerateDeviceExtensionProperties();
 
@@ -504,8 +500,7 @@ void initDevice()
         Log(RYME_ANCHOR, "\t{}", extension);
     }
 
-#pragma endregion
-#pragma region Device
+    // Device
 
     auto deviceCreateInfo = vk::DeviceCreateInfo()
         .setQueueCreateInfos(queueCreateInfoList)
@@ -518,35 +513,36 @@ void initDevice()
     _graphicsQueue = Device.getQueue(_graphicsQueueFamilyIndex, 0);
     _presentQueue = Device.getQueue(_presentQueueFamilyIndex, 0);
 
-#pragma endregion
-
 }
 
 void initAllocator()
 {
-    vma::AllocatorCreateFlags allocatorCreateFlags;
+    VmaAllocatorCreateFlags allocatorCreateFlags = 0;
 
     #if defined(VK_EXT_memory_budget)
         
         if (hasDeviceExtension(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME)) {
-            allocatorCreateFlags |= vma::AllocatorCreateFlagBits::eExtMemoryBudget;
+            allocatorCreateFlags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
         }
 
     #endif
 
-    auto allocatorCreateInfo = vma::AllocatorCreateInfo()
-        .setFlags(allocatorCreateFlags)
-        .setInstance(Instance)
-        .setPhysicalDevice(_physicalDevice)
-        .setDevice(Device)
-        .setVulkanApiVersion(VK_API_VERSION_1_1);
+    auto allocatorCreateInfo = VmaAllocatorCreateInfo{
+        .flags = allocatorCreateFlags,
+        .physicalDevice = _physicalDevice,
+        .device = Device,
+        .instance = Instance,
+        .vulkanApiVersion = VK_API_VERSION_1_1,
+    };
 
-    Allocator = vma::createAllocator(allocatorCreateInfo);
+    auto vkResult = (vk::Result)vmaCreateAllocator(&allocatorCreateInfo, &Allocator);
+
+    vk::resultCheck(vkResult, "vmaCreateAllocator");
 
     auto memoryProperties = _physicalDevice.getMemoryProperties();
 
-    List<vma::Budget> budgetList(memoryProperties.memoryHeapCount);
-    Allocator.getBudget(budgetList.data());
+    List<VmaBudget> budgetList(memoryProperties.memoryHeapCount);
+    vmaGetHeapBudgets(Allocator, budgetList.data());
 
     for (uint32_t heap = 0; heap < memoryProperties.memoryHeapCount; ++heap) {
         Log(RYME_ANCHOR, "Vulkan Memory Heap #{}: {}",
@@ -596,7 +592,7 @@ void initDepthBuffer()
         vk::to_string(_depthImageFormat)
     );
     
-    Allocator.freeMemory(_depthImageAllocation);
+    vmaFreeMemory(Allocator, _depthImageAllocation);
 
     Device.destroyImage(_depthImage);
 
@@ -609,10 +605,14 @@ void initDepthBuffer()
         .setTiling(vk::ImageTiling::eOptimal)
         .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment);
 
-    auto allocationCreateInfo = vma::AllocationCreateInfo()
-        .setUsage(vma::MemoryUsage::eGpuOnly);
+    auto allocationCreateInfo = VmaAllocationCreateInfo{
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+    };
     
-    std::tie(_depthImage, _depthImageAllocation) = Allocator.createImage(imageCreateInfo, allocationCreateInfo);
+    std::tie(_depthImage, _depthImageAllocation) = CreateImage(
+        imageCreateInfo,
+        allocationCreateInfo
+    );
 
     Device.destroyImageView(_depthImageView);
 
@@ -702,7 +702,7 @@ void initUniformBuffers()
         sizeof(ShaderGlobals),
         nullptr,
         vk::BufferUsageFlagBits::eUniformBuffer,
-        vma::MemoryUsage::eCpuToGpu
+        VMA_MEMORY_USAGE_CPU_TO_GPU
     );
 
 }
@@ -734,7 +734,7 @@ void initSwapChain()
 
     vkDeviceWaitIdle(Device);
 
-#pragma region Image Format
+    /// Image Format
 
     auto formatList = _physicalDevice.getSurfaceFormatsKHR(_surface);
 
@@ -768,8 +768,7 @@ void initSwapChain()
         vk::to_string(imageFormat.colorSpace)
     );
 
-#pragma endregion
-#pragma region Image Extent
+    /// Image Extent
 
     auto surfaceCapabilities = _physicalDevice.getSurfaceCapabilitiesKHR(_surface);
 
@@ -794,8 +793,7 @@ void initSwapChain()
         _swapChainExtent.height
     );
 
-#pragma endregion
-#pragma region Present Mode
+    /// Present Mode
 
     auto presentModeList = _physicalDevice.getSurfacePresentModesKHR(_surface);
 
@@ -814,8 +812,7 @@ void initSwapChain()
 
     Log(RYME_ANCHOR, "Vulkan Swap Chain Present Mode: {}", vk::to_string(presentMode));
 
-#pragma endregion
-#pragma region Swap Chain
+    /// Swap Chain
 
     auto oldSwapChain = _swapChain;
 
@@ -872,8 +869,7 @@ void initSwapChain()
 
     Device.destroySwapchainKHR(oldSwapChain);
 
-#pragma endregion
-#pragma region Image List
+    /// Image List
 
     _swapChainImageList = Device.getSwapchainImagesKHR(_swapChain);
 
@@ -895,8 +891,6 @@ void initSwapChain()
             Device.createImageView(imageViewCreateInfo)
         );
     }
-
-#pragma endregion
 
     initDepthBuffer();
     initRenderPass();
@@ -941,7 +935,7 @@ void Term()
     
     Device.destroyImage(_depthImage);
 
-    Allocator.freeMemory(_depthImageAllocation);
+    vmaFreeMemory(Allocator, _depthImageAllocation);
 
     for (auto& imageView : _swapChainImageViewList) {
         Device.destroyImageView(imageView);
@@ -950,7 +944,7 @@ void Term()
     // The vk::Image's in _swapChainImageList are destroyed as well
     Device.destroySwapchainKHR(_swapChain);
 
-    Allocator.destroy();
+    vmaDestroyAllocator(Allocator);
 
     Device.destroy();
 
@@ -1663,6 +1657,56 @@ Vec2i GetWindowSize()
 //     }
 // }
 
+
+RYME_API
+Tuple<vk::Buffer, VmaAllocation> CreateBuffer(
+    vk::BufferCreateInfo& bufferCreateInfo,
+    VmaAllocationCreateInfo& allocationCreateInfo,
+    VmaAllocationInfo * allocationInfo /*= nullptr*/
+)
+{
+    vk::Buffer buffer;
+    VmaAllocation allocation;
+    
+    auto vkResult = (vk::Result)vmaCreateBuffer(
+        Allocator,
+        reinterpret_cast<const VkBufferCreateInfo *>(&bufferCreateInfo),
+        &allocationCreateInfo,
+        reinterpret_cast<VkBuffer *>(&buffer),
+        &allocation,
+        allocationInfo
+    );
+
+    vk::resultCheck(vkResult, "vmaCreateBuffer");
+
+    return { buffer, allocation };
+}
+
+RYME_API
+Tuple<vk::Image, VmaAllocation> CreateImage(
+    vk::ImageCreateInfo& imageCreateInfo,
+    VmaAllocationCreateInfo& allocationCreateInfo,
+    VmaAllocationInfo * allocationInfo /*= nullptr*/
+)
+{
+    vk::Image image;
+    VmaAllocation allocation;
+    
+    auto vkResult = (vk::Result)vmaCreateImage(
+        Allocator,
+        reinterpret_cast<const VkImageCreateInfo *>(&imageCreateInfo),
+        &allocationCreateInfo,
+        reinterpret_cast<VkImage *>(&image),
+        &allocation,
+        allocationInfo
+    );
+
+    vk::resultCheck(vkResult, "vmaCreateImage");
+
+    return { image, allocation };
+}
+
+RYME_API
 void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::BufferCopy region)
 {
     auto allocateInfo = vk::CommandBufferAllocateInfo()
@@ -1692,6 +1736,7 @@ void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::BufferCopy regio
     Device.freeCommandBuffers(_commandPool, commandBufferList);
 }
 
+RYME_API
 void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region)
 {
     auto allocateInfo = vk::CommandBufferAllocateInfo()

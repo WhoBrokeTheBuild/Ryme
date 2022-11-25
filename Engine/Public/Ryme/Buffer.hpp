@@ -2,22 +2,21 @@
 #define RYME_BUFFER_HPP
 
 #include <Ryme/Config.hpp>
+#include <Ryme/NonCopyable.hpp>
 
 #include <Ryme/ThirdParty/vulkan.hpp>
 
 namespace ryme {
 
-class RYME_API Buffer
+class RYME_API Buffer : public NonCopyable
 {
 public:
-
-    RYME_DISALLOW_COPY_AND_ASSIGN(Buffer)
 
     Buffer() = default;
 
     virtual ~Buffer();
 
-    void Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlags bufferUsage, vma::MemoryUsage memoryUsage);
+    void Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlagBits bufferUsage, VmaMemoryUsage memoryUsage);
 
     void Destroy();
 
@@ -29,7 +28,7 @@ public:
         return _bufferUsage;
     }
 
-    inline vma::MemoryUsage GetMemoryUsage() const {
+    inline VmaMemoryUsage GetMemoryUsage() const {
         return _memoryUsage;
     }
 
@@ -47,11 +46,11 @@ private:
 
     vk::BufferUsageFlags _bufferUsage;
 
-    vma::MemoryUsage _memoryUsage;
+    VmaMemoryUsage _memoryUsage;
 
     vk::Buffer _buffer;
     
-    vma::Allocation _allocation;
+    VmaAllocation _allocation;
 
     uint8_t * _mappedBufferMemory = nullptr;
 

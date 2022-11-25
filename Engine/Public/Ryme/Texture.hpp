@@ -39,7 +39,7 @@ private:
 
     vk::Image _image;
 
-    vma::Allocation _allocation;
+    VmaAllocation _allocation;
 
     vk::ImageView _imageView;
 

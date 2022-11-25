@@ -43,6 +43,8 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
     if (!data) {
         return false;
     }
+
+    _path = fullPath;
     
     vk::DeviceSize size = width * height * STBI_rgb_alpha;
 
@@ -50,16 +52,17 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
         .setSize(size)
         .setUsage(vk::BufferUsageFlagBits::eTransferSrc);
     
-    auto stagingAllocationCreateInfo = vma::AllocationCreateInfo()
-        .setFlags(vma::AllocationCreateFlagBits::eMapped)
-        .setUsage(vma::MemoryUsage::eCpuOnly);
+    auto stagingAllocationCreateInfo = VmaAllocationCreateInfo{
+        .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_CPU_ONLY,
+    };
 
-    vma::AllocationInfo stagingAllocationInfo;
+    VmaAllocationInfo stagingAllocationInfo;
 
-    auto[stagingBuffer, stagingAllocation] = Graphics::Allocator.createBuffer(
+    auto[stagingBuffer, stagingAllocation] = Graphics::CreateBuffer(
         stagingBufferCreateInfo,
         stagingAllocationCreateInfo,
-        stagingAllocationInfo
+        &stagingAllocationInfo
     );
     
     memcpy(stagingAllocationInfo.pMappedData, data, size);
@@ -75,13 +78,17 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
         .setArrayLayers(1) // TODO: Investigate
         .setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
         .setInitialLayout(vk::ImageLayout::eUndefined) // Preinitialized?
+        .setSharingMode(vk::SharingMode::eExclusive)
         .setSamples(vk::SampleCountFlagBits::e1);
 
-    auto allocationCreateInfo = vma::AllocationCreateInfo()
-        .setUsage(vma::MemoryUsage::eGpuOnly);
+    auto allocationCreateInfo = VmaAllocationCreateInfo{
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+    };
 
-    std::tie(_image, _allocation) = Graphics::Allocator
-        .createImage(imageCreateInfo, allocationCreateInfo);
+    std::tie(_image, _allocation) = Graphics::CreateImage(
+        imageCreateInfo,
+        allocationCreateInfo
+    );
 
     auto subresourceLayers = vk::ImageSubresourceLayers()
         .setAspectMask(vk::ImageAspectFlagBits::eColor)
@@ -99,7 +106,7 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
 
     Graphics::CopyBufferToImage(stagingBuffer, _image, region);
 
-    Graphics::Allocator.freeMemory(stagingAllocation);
+    vmaFreeMemory(Graphics::Allocator, stagingAllocation);
 
     Graphics::Device.destroyBuffer(stagingBuffer);
 
@@ -120,7 +127,7 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
 
     _sampler = Graphics::Device.createSampler(samplerCreateInfo);
 
-    _path = fullPath;
+    // TODO: Improve?
     _samplerCreateInfo = samplerCreateInfo;
     
     Log(RYME_ANCHOR, "Loaded '{}'", fullPath);
@@ -132,12 +139,16 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
 void Texture::Free()
 {
     Graphics::Device.destroySampler(_sampler);
+    _sampler = nullptr;
 
     Graphics::Device.destroyImageView(_imageView);
+    _imageView = nullptr;
 
     Graphics::Device.destroyImage(_image);
+    _image = nullptr;
 
-    Graphics::Allocator.freeMemory(_allocation);
+    vmaFreeMemory(Graphics::Allocator, _allocation);
+    _allocation = nullptr;
 }
 
 bool Texture::Reload()

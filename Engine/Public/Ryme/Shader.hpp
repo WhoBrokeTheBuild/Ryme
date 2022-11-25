@@ -46,7 +46,7 @@ private:
 
     List<vk::ShaderModule> _shaderModuleList;
 
-    List<String> _entryPointNameList;
+    List<char *> _entryPointNameList;
 
     List<vk::PipelineShaderStageCreateInfo> _shaderStageCreateInfoList;
 

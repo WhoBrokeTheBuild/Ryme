@@ -21,14 +21,6 @@ INCLUDE(ProjectVersion)
 ### Options
 ###
 
-IF(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    SET(RYME_IS_DEBUG ON)
-    SET(RYME_IS_RELEASE OFF)
-ELSE()
-    SET(RYME_IS_DEBUG OFF)
-    SET(RYME_IS_RELEASE ON)
-ENDIF()
-
 OPTION(
     RYME_TEST
     "Build Ryme test suite"
@@ -38,7 +30,7 @@ OPTION(
 OPTION(
     RYME_BENCHMARK
     "Build Ryme with benchmarking"
-    ${RYME_IS_DEBUG}
+    OFF
 )
 
 IF(RYME_TEST)
@@ -63,7 +55,7 @@ FIND_PACKAGE(pybind11 CONFIG REQUIRED)
 
 FIND_PACKAGE(nlohmann_json CONFIG REQUIRED)
 
-FIND_PACKAGE(Vulkan COMPONENTS Vulkan glslc REQUIRED)
+FIND_PACKAGE(Vulkan COMPONENTS glslc REQUIRED)
 
 FIND_PACKAGE(spirv_cross_core CONFIG REQUIRED)
 

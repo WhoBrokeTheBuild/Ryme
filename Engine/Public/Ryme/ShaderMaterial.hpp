@@ -8,19 +8,21 @@ namespace ryme {
 
 struct RYME_API ShaderMaterial
 {
+public:
+
     static inline const uint32_t Binding = 2;
 
-    Vec4 BaseColorFactor;
+    alignas(4) Vec4 BaseColorFactor;
 
-    Vec3 EmissiveFactor;
+    alignas(4) Vec3 EmissiveFactor;
 
-    float MetallicFactor;
+    alignas(4) float MetallicFactor;
 
-    float RoughnessFactor;
+    alignas(4) float RoughnessFactor;
 
-    float OcclusionStrength;
+    alignas(4) float OcclusionStrength;
 
-    float NormalScale;
+    alignas(4) float NormalScale;
 
 }; // struct ShaderMaterial
 
