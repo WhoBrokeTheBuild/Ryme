@@ -29,6 +29,8 @@ Vec2i _windowSize;
 
 String _windowTitle;
 
+Color _clearColor;
+
 // Vulkan Instance
 
 List<vk::LayerProperties> _availableLayerList;
@@ -79,15 +81,19 @@ List<vk::CommandBuffer> _commandBufferList;
 
 // Swap Chain
 
-vk::Extent2D _swapChainExtent;
+vk::Extent2D _swapchainExtent;
 
-vk::SwapchainKHR _swapChain;
+vk::SwapchainKHR _swapchain;
 
-vk::Format _swapChainImageFormat;
+vk::Format _swapchainImageFormat;
 
-List<vk::Image> _swapChainImageList;
+vk::ColorSpaceKHR _swapchainColorSpace;
 
-List<vk::ImageView> _swapChainImageViewList;
+List<vk::Image> _swapchainImageList;
+
+List<vk::ImageView> _swapchainImageViewList;
+
+List<VkFramebuffer> _framebufferList;
 
 // Depth Buffer
 
@@ -109,13 +115,13 @@ vk::DescriptorPool _descriptorPool;
 
 // Sync Objects
 
-List<VkSemaphore> _imageAvailableSemaphoreList;
+unsigned _currentFrame;
 
-List<VkSemaphore> _renderingFinishedSemaphoreList;
+List<vk::Semaphore> _imageAvailableSemaphoreList;
 
-List<VkFence> _inFlightFenceList;
+List<vk::Semaphore> _renderingFinishedSemaphoreList;
 
-List<VkFence> _imageInFlightList;
+List<vk::Fence> _inFlightFenceList;
 
 inline bool hasInstanceLayer(StringView name)
 {
@@ -218,7 +224,7 @@ void initWindow()
         SDL_WINDOWPOS_CENTERED,
         _windowSize.x,
         _windowSize.y,
-        SDL_WINDOW_VULKAN
+        SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE
     );
 
     if (!_window) {
@@ -313,15 +319,15 @@ void initInstance()
     #if defined(VK_EXT_debug_utils)
 
         auto debugUtilsMessengerCreateInfo = vk::DebugUtilsMessengerCreateInfoEXT()
-            .setMessageSeverity( 
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo
+            .setMessageSeverity(
+                  vk::DebugUtilsMessageSeverityFlagBitsEXT::eError
+                | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
+                // | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo
             )
             .setMessageType(
-                vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance
+                  vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
+                | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
+                | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance
             )
             .setPfnUserCallback(_VulkanDebugMessageCallback);
             
@@ -599,7 +605,7 @@ void initDepthBuffer()
     auto imageCreateInfo = vk::ImageCreateInfo()
         .setImageType(vk::ImageType::e2D)
         .setFormat(_depthImageFormat)
-        .setExtent(vk::Extent3D(_swapChainExtent, 1))
+        .setExtent(vk::Extent3D(_swapchainExtent, 1))
         .setMipLevels(1)
         .setArrayLayers(1)
         .setTiling(vk::ImageTiling::eOptimal)
@@ -628,7 +634,7 @@ void initDepthBuffer()
 void initRenderPass()
 {
     auto colorAttachmentDescription = vk::AttachmentDescription()
-        .setFormat(_swapChainImageFormat)
+        .setFormat(_swapchainImageFormat)
         .setSamples(vk::SampleCountFlagBits::e1)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -697,14 +703,42 @@ void initRenderPass()
 
 void initUniformBuffers()
 {
-    Buffer shaderGlobalsBuffer;
-    shaderGlobalsBuffer.Create(
-        sizeof(ShaderGlobals),
-        nullptr,
-        vk::BufferUsageFlagBits::eUniformBuffer,
-        VMA_MEMORY_USAGE_CPU_TO_GPU
-    );
+    // Buffer shaderGlobalsBuffer;
+    // shaderGlobalsBuffer.Create(
+    //     sizeof(ShaderGlobals),
+    //     nullptr,
+    //     vk::BufferUsageFlagBits::eUniformBuffer,
+    //     VMA_MEMORY_USAGE_CPU_TO_GPU
+    // );
 
+}
+
+void initFramebufferList()
+{
+    for (auto& framebuffer : _framebufferList) {
+        Device.destroyFramebuffer(framebuffer);
+        framebuffer = nullptr;
+    }
+
+    size_t backbufferCount = _swapchainImageViewList.size();
+
+    _framebufferList.resize(_swapchainImageViewList.size());
+
+    for (unsigned i = 0; i < backbufferCount; ++i) {
+        Array<vk::ImageView, 2> attachmentList = {
+            _swapchainImageViewList[i],
+            _depthImageView,
+        };
+
+        auto framebufferCreateInfo = vk::FramebufferCreateInfo()
+            .setRenderPass(RenderPass)
+            .setAttachments(attachmentList)
+            .setWidth(_swapchainExtent.width)
+            .setHeight(_swapchainExtent.height)
+            .setLayers(1);
+
+        _framebufferList[i] = Device.createFramebuffer(framebufferCreateInfo);
+    }
 }
 
 void initCommandBufferList()
@@ -723,12 +757,90 @@ void initCommandBufferList()
         vk::CommandBufferAllocateInfo(
             _commandPool,
             vk::CommandBufferLevel::ePrimary,
-            _swapChainImageList.size()
+            _swapchainImageList.size()
         )
     );
 }
 
-void initSwapChain()
+void initSyncObjects()
+{
+    for (auto fence : _inFlightFenceList) {
+        Device.destroyFence(fence);
+        fence = nullptr;
+    }
+
+    for (auto& semaphore : _imageAvailableSemaphoreList) {
+        Device.destroySemaphore(semaphore);
+        semaphore = nullptr;
+    }
+
+    for (auto& semaphore : _renderingFinishedSemaphoreList) {
+        Device.destroySemaphore(semaphore);
+        semaphore = nullptr;
+    }
+
+    size_t backbufferCount = _swapchainImageViewList.size();
+
+    _imageAvailableSemaphoreList.resize(backbufferCount);
+    _renderingFinishedSemaphoreList.resize(backbufferCount);
+    _inFlightFenceList.resize(backbufferCount);
+
+    auto semaphoreCreateInfo = vk::SemaphoreCreateInfo();
+
+    auto fenceCreateInfo = vk::FenceCreateInfo()
+        .setFlags(vk::FenceCreateFlagBits::eSignaled);
+
+    for (unsigned i = 0; i < backbufferCount; ++i) {
+        _imageAvailableSemaphoreList[i] = Device.createSemaphore(semaphoreCreateInfo);
+        _renderingFinishedSemaphoreList[i] = Device.createSemaphore(semaphoreCreateInfo);
+        _inFlightFenceList[i] = Device.createFence(fenceCreateInfo);
+    }
+}
+
+void fillCommandBuffers()
+{
+    for (size_t i = 0; i < _commandBufferList.size(); ++i) {
+        auto& commandBuffer = _commandBufferList[i];
+
+        auto commandBufferBeginInfo = vk::CommandBufferBeginInfo();
+        commandBuffer.begin(commandBufferBeginInfo);
+
+        Color clearColor = _clearColor;
+
+        // If our surface is sRGB, Vulkan will try to convert our color to sRGB
+        // This fails and washes out the color, so we convert to linear to account for it        
+        if (_swapchainColorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+            clearColor = clearColor.ToLinear();
+        }
+
+        auto clearValueArray = clearColor.ToArray();
+
+        Array<vk::ClearValue, 2> clearValueList = {
+            vk::ClearValue(clearValueArray),
+            vk::ClearValue({ 1.0f, 0 }),
+        };
+
+        auto renderArea = vk::Rect2D()
+            .setOffset({ 0, 0 })
+            .setExtent(_swapchainExtent);
+
+        auto renderPassBeginInfo = vk::RenderPassBeginInfo()
+            .setRenderPass(RenderPass)
+            .setFramebuffer(_framebufferList[i])
+            .setRenderArea(renderArea)
+            .setClearValues(clearValueList);
+
+        commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+
+            // commandBuffer.
+
+        commandBuffer.endRenderPass();
+
+        commandBuffer.end();
+    }
+}
+
+void initSwapchain()
 {
     RYME_BENCHMARK_START();
 
@@ -746,12 +858,14 @@ void initSwapChain()
 
     Log(RYME_ANCHOR, "Available Vulkan Surface Formats:");
     for (const auto& format : formatList) {
-        bool isSRGB = (
+        bool isPreferredFormat = (
             format.format == vk::Format::eR8G8B8A8Srgb ||
             format.format == vk::Format::eB8G8R8A8Srgb
         );
 
-        if (isSRGB && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+        bool isSRGB = (format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear);
+        
+        if (isPreferredFormat && isSRGB) {
             imageFormat = format;
         }
 
@@ -761,27 +875,28 @@ void initSwapChain()
         );
     }
 
-    _swapChainImageFormat = imageFormat.format;
-
     Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {} {} ",
         vk::to_string(imageFormat.format),
         vk::to_string(imageFormat.colorSpace)
     );
 
+    _swapchainImageFormat = imageFormat.format;
+    _swapchainColorSpace = imageFormat.colorSpace;
+
     /// Image Extent
 
     auto surfaceCapabilities = _physicalDevice.getSurfaceCapabilitiesKHR(_surface);
 
-    _swapChainExtent = surfaceCapabilities.currentExtent;
+    _swapchainExtent = surfaceCapabilities.currentExtent;
 
-    if (_swapChainExtent.width == UINT32_MAX) {
-        _swapChainExtent.width = std::clamp(
+    if (_swapchainExtent.width == UINT32_MAX) {
+        _swapchainExtent.width = std::clamp(
             static_cast<uint32_t>(_windowSize.x),
             surfaceCapabilities.minImageExtent.width,
             surfaceCapabilities.maxImageExtent.width
         );
 
-        _swapChainExtent.height = std::clamp(
+        _swapchainExtent.height = std::clamp(
             static_cast<uint32_t>(_windowSize.y),
             surfaceCapabilities.minImageExtent.height,
             surfaceCapabilities.maxImageExtent.height
@@ -789,8 +904,8 @@ void initSwapChain()
     }
 
     Log(RYME_ANCHOR, "Vulkan Swap Chain Extent: {}x{}",
-        _swapChainExtent.width,
-        _swapChainExtent.height
+        _swapchainExtent.width,
+        _swapchainExtent.height
     );
 
     /// Present Mode
@@ -814,14 +929,14 @@ void initSwapChain()
 
     /// Swap Chain
 
-    auto oldSwapChain = _swapChain;
+    auto oldSwapChain = _swapchain;
 
     auto swapChainCreateInfo = vk::SwapchainCreateInfoKHR()
         .setSurface(_surface)
         .setMinImageCount(surfaceCapabilities.minImageCount)
         .setImageFormat(imageFormat.format)
         .setImageColorSpace(imageFormat.colorSpace)
-        .setImageExtent(_swapChainExtent)
+        .setImageExtent(_swapchainExtent)
         .setImageArrayLayers(1) // Always 1 for 3D applications
         .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
         .setPreTransform(surfaceCapabilities.currentTransform)
@@ -865,48 +980,53 @@ void initSwapChain()
         vk::to_string(swapChainCreateInfo.imageSharingMode)
     );
 
-    _swapChain = Device.createSwapchainKHR(swapChainCreateInfo);
+    _swapchain = Device.createSwapchainKHR(swapChainCreateInfo);
 
     Device.destroySwapchainKHR(oldSwapChain);
 
     /// Image List
 
-    _swapChainImageList = Device.getSwapchainImagesKHR(_swapChain);
+    _swapchainImageList = Device.getSwapchainImagesKHR(_swapchain);
 
-    for (auto& imageView : _swapChainImageViewList) {
+    for (auto& imageView : _swapchainImageViewList) {
         Device.destroyImageView(imageView);
     }
 
-    _swapChainImageViewList.clear();
-    _swapChainImageViewList.reserve(_swapChainImageList.size());
+    _swapchainImageViewList.clear();
+    _swapchainImageViewList.reserve(_swapchainImageList.size());
 
     auto imageViewCreateInfo = vk::ImageViewCreateInfo()
         .setViewType(vk::ImageViewType::e2D)
-        .setFormat(_swapChainImageFormat)
+        .setFormat(_swapchainImageFormat)
         .setSubresourceRange({ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 });
 
-    for (const auto& image : _swapChainImageList) {
+    for (const auto& image : _swapchainImageList) {
         imageViewCreateInfo.setImage(image);
-        _swapChainImageViewList.push_back(
+        _swapchainImageViewList.push_back(
             Device.createImageView(imageViewCreateInfo)
         );
     }
 
     initDepthBuffer();
     initRenderPass();
-    // initFramebufferList();
+    initFramebufferList();
     initCommandBufferList();
+    fillCommandBuffers(); // TODO:
+    initSyncObjects();
 
     RYME_BENCHMARK_END();
 }
 
 RYME_API
-void Init(String windowTitle, Vec2i windowSize)
+void Init(const InitInfo& initInfo)
 {
     RYME_BENCHMARK_START();
 
-    _windowSize = windowSize;
-    _windowTitle = windowTitle;
+    _windowSize = initInfo.WindowSize;
+    _windowTitle = initInfo.WindowTitle;
+    _clearColor = initInfo.ClearColor;
+
+    _currentFrame = 0;
     
     initWindow();
     initInstance();
@@ -914,8 +1034,9 @@ void Init(String windowTitle, Vec2i windowSize)
     initDevice();
     initAllocator();
 
-    initSwapChain();
-    initSwapChain(); // Test swap chain recreation
+    initSwapchain();
+    initSwapchain(); // Test swap chain recreation
+
     
     RYME_BENCHMARK_END();
 }
@@ -925,11 +1046,43 @@ void Term()
 {
     RYME_BENCHMARK_START();
 
+    Device.waitIdle();
+
+    // termSyncObjects
+
+    for (auto fence : _inFlightFenceList) {
+        Device.destroyFence(fence);
+        fence = nullptr;
+    }
+
+    for (auto semaphore : _renderingFinishedSemaphoreList) {
+        Device.destroySemaphore(semaphore);
+        semaphore = nullptr;
+    }
+
+    for (auto semaphore : _imageAvailableSemaphoreList) {
+        Device.destroySemaphore(semaphore);
+        semaphore = nullptr;
+    }
+
+    // termCommandBufferList
+
     Device.freeCommandBuffers(_commandPool, _commandBufferList);
 
     Device.destroyCommandPool(_commandPool);
 
+    // termFramebufferList
+
+    for (auto framebuffer : _framebufferList) {
+        Device.destroyFramebuffer(framebuffer);
+        framebuffer = nullptr;
+    }
+
+    // termRenderPass
+
     Device.destroyRenderPass(RenderPass);
+
+    // termDepthBuffer
 
     Device.destroyImageView(_depthImageView);
     
@@ -937,22 +1090,33 @@ void Term()
 
     vmaFreeMemory(Allocator, _depthImageAllocation);
 
-    for (auto& imageView : _swapChainImageViewList) {
+    // termSwapchain
+
+    for (auto& imageView : _swapchainImageViewList) {
         Device.destroyImageView(imageView);
+        imageView = nullptr;
     }
 
-    // The vk::Image's in _swapChainImageList are destroyed as well
-    Device.destroySwapchainKHR(_swapChain);
+    // The vk::Image's in _swapchainImageList are destroyed as well
+    Device.destroySwapchainKHR(_swapchain);
+
+    // termAllocator
 
     vmaDestroyAllocator(Allocator);
 
+    // termDevice
+
     Device.destroy();
+
+    // termInstance
 
     Instance.destroySurfaceKHR(_surface);
 
     Instance.destroyDebugUtilsMessengerEXT(_debugUtilsMessenger);
 
     Instance.destroy();
+
+    // termWindow
 
     if (_window) {
         SDL_DestroyWindow(_window);
@@ -962,6 +1126,110 @@ void Term()
     SDL_Quit();
 
     RYME_BENCHMARK_END();
+}
+
+RYME_API
+void Render()
+{
+    static bool updateSwapchain = false;
+
+    if (updateSwapchain) {
+        Log(RYME_ANCHOR, "Regenerating Swapchain");
+        initSwapchain();
+        updateSwapchain = false;
+    }
+
+    constexpr uint64_t MaxTimeout = std::numeric_limits<uint64_t>::max();
+
+    vk::Result vkResult;
+
+    vmaSetCurrentFrameIndex(Allocator, _currentFrame);
+
+    vkResult = Device.waitForFences(1, &_inFlightFenceList[_currentFrame], true, MaxTimeout);
+    vk::resultCheck(vkResult, "vk::Device::waitForFences");
+
+    vkResult = Device.resetFences(1, &_inFlightFenceList[_currentFrame]);
+
+    uint32_t imageIndex;
+
+    // We explicitly invoke the nothrow version of this function, since the enhanced version throws vk::OutOfDateKHRError
+    // https://github.com/KhronosGroup/Vulkan-Hpp/issues/599
+    vkResult = Device.acquireNextImageKHR(
+        _swapchain,
+        MaxTimeout,
+        _imageAvailableSemaphoreList[_currentFrame],
+        nullptr,
+        &imageIndex
+    );
+
+    if (vkResult == vk::Result::eErrorOutOfDateKHR) {
+        updateSwapchain = true;
+        return;
+    }
+
+    vk::resultCheck(vkResult, "vk::Device::acquireNextImageKHR",
+        { vk::Result::eSuccess, vk::Result::eSuboptimalKHR });
+
+    Array<vk::Semaphore, 1> waitSemaphoreList = {
+        _imageAvailableSemaphoreList[_currentFrame],
+    };
+
+    Array<vk::Semaphore, 1> signalSemaphoreList = {
+        _renderingFinishedSemaphoreList[_currentFrame],
+    };
+
+    Array<vk::PipelineStageFlags, 1> waitStageList = {
+        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+    };
+
+    Array<vk::CommandBuffer, 1> commandBufferList = {
+        _commandBufferList[imageIndex],
+    };
+
+    auto submitInfo = vk::SubmitInfo()
+        .setWaitSemaphores(waitSemaphoreList)
+        .setWaitDstStageMask(waitStageList)
+        .setCommandBuffers(commandBufferList)
+        .setSignalSemaphores(signalSemaphoreList);
+
+    _graphicsQueue.submit(submitInfo, _inFlightFenceList[_currentFrame]);
+
+    Array<vk::SwapchainKHR, 1> swapchainList = {
+        _swapchain,
+    };
+
+    Array<uint32_t, 1> imageIndexList = {
+        imageIndex,
+    };
+
+    auto presentInfo = vk::PresentInfoKHR()
+        .setSwapchains(swapchainList)
+        .setWaitSemaphores(signalSemaphoreList)
+        .setImageIndices(imageIndexList);
+
+    // We explicitly invoke the nothrow version of this function, since the enhanced version throws vk::OutOfDateKHRError
+    // https://github.com/KhronosGroup/Vulkan-Hpp/issues/599
+    // https://github.com/KhronosGroup/Vulkan-Hpp/issues/599
+    vkResult = _presentQueue.presentKHR(&presentInfo);
+    if (vkResult == vk::Result::eErrorOutOfDateKHR) {
+        updateSwapchain = true;
+        return;
+    }
+
+    vk::resultCheck(vkResult, "vk::Queue::presentKHR",
+        { vk::Result::eSuccess, vk::Result::eSuboptimalKHR });
+
+    _currentFrame = (_currentFrame + 1) % _inFlightFenceList.size();
+}
+
+RYME_API
+void HandleEvent(SDL_Event& event)
+{
+    if (event.type == SDL_WINDOWEVENT) {
+        if (event.window.type == SDL_WINDOWEVENT_RESIZED) {
+            _windowSize = { event.window.data1, event.window.data2 };
+        }
+    }
 }
 
 RYME_API
@@ -993,670 +1261,6 @@ Vec2i GetWindowSize()
 {
     return _windowSize;
 }
-
-// void initSwapChain()
-// {
-//     VkResult vkResult;
-
-//     uint32_t formatCount = 0;
-//     vkGetPhysicalDeviceSurfaceFormatsKHR(
-//         _vkPhysicalDevice,
-//         _vkSurface,
-//         &formatCount,
-//         nullptr
-//     );
-
-//     if (formatCount == 0) {
-//         throw Exception("vkGetPhysicalDeviceSurfaceFormatsKHR() failed, no surface formats found");
-//     }
-
-//     List<VkSurfaceFormatKHR> formatList(formatCount);
-//     vkGetPhysicalDeviceSurfaceFormatsKHR(
-//         _vkPhysicalDevice,
-//         _vkSurface,
-//         &formatCount,
-//         formatList.data()
-//     );
-
-//     Log(RYME_ANCHOR, "Available Vulkan Surface Formats:");
-//     VkSurfaceFormatKHR surfaceFormat = formatList[0];
-//     for (const auto& format : formatList) {
-//         bool isSRGB = (
-//             format.format == VK_FORMAT_R8G8B8A8_SRGB ||
-//             format.format == VK_FORMAT_B8G8R8A8_SRGB
-//         );
-
-//         if (isSRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-//             surfaceFormat = format;
-//         }
-
-//         Log(RYME_ANCHOR, "\t{} {}",
-//             std::to_string(format.format),
-//             std::to_string(format.colorSpace)
-//         );
-//     }
-
-//     Log(RYME_ANCHOR, "Vulkan Swap Chain Image Format: {}",
-//         std::to_string(surfaceFormat.format));
-
-//     Log(RYME_ANCHOR, "Vuilkan Swap Chain Image Color Space: {}",
-//         std::to_string(surfaceFormat.colorSpace));
-
-//     uint32_t presentModeCount = 0;
-//     vkGetPhysicalDeviceSurfacePresentModesKHR(
-//         _vkPhysicalDevice,
-//         _vkSurface,
-//         &presentModeCount,
-//         nullptr
-//     );
-
-//     if (presentModeCount == 0) {
-//         throw Exception("vkGetPhysicalDeviceSurfacePresentModeKHR() failed, no present modes found");
-//     }
-
-//     List<VkPresentModeKHR> presentModeList(presentModeCount);
-//     vkGetPhysicalDeviceSurfacePresentModesKHR(
-//         _vkPhysicalDevice,
-//         _vkSurface,
-//         &presentModeCount,
-//         presentModeList.data()
-//     );
-
-//     // VK_PRESENT_MODE_IMMEDIATE_KHR = Do not wait for vsync, may cause screen tearing
-//     // VK_PRESENT_MODE_FIFO_KHR = Queue of presentation requests, wait for vsync, required to be supported
-//     //    equivalent to {wgl|glX|egl}SwapBuffers(1)
-//     // VK_PRESENT_MODE_FIFO_RELAXED_KHR = Similar to FIFO, but will not wait for a second vsync period 
-//     //    if the first has already passed, may cause screen tearing
-//     //    equivalent to {wgl|glX}SwapBuffers(-1)
-//     // VK_PRESENT_MODE_MAILBOX_KHR = Queue of presentation requests, wait for vsync, replaces entries if the queue is full
-
-//     Log(RYME_ANCHOR, "Available Vulkan Present Modes:");
-
-//     // FIFO is the only present mode required to be supported
-//     VkPresentModeKHR swapChainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-//     for (const auto& presentMode : presentModeList) {
-//         if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-//             swapChainPresentMode = presentMode;
-//         }
-
-//         Log(RYME_ANCHOR, "\t{}", std::to_string(presentMode));
-//     }
-
-//     Log(RYME_ANCHOR, "Vulkan Swap Chain Present Mode: {}",
-//         std::to_string(swapChainPresentMode));
-
-//     VkSurfaceCapabilitiesKHR surfaceCapabilities;
-//     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-//         _vkPhysicalDevice,
-//         _vkSurface,
-//         &surfaceCapabilities
-//     );
-
-//     _vkSwapChainExtent = surfaceCapabilities.currentExtent;
-
-//     if (_vkSwapChainExtent.width == UINT32_MAX || _vkSwapChainExtent.height == UINT32_MAX) {
-//         const Vec2i& size = _windowSize;
-
-//         _vkSwapChainExtent.width = std::clamp(
-//             static_cast<uint32_t>(size.x),
-//             surfaceCapabilities.minImageExtent.width,
-//             surfaceCapabilities.maxImageExtent.width
-//         );
-
-//         _vkSwapChainExtent.height = std::clamp(
-//             static_cast<uint32_t>(size.y),
-//             surfaceCapabilities.minImageExtent.height,
-//             surfaceCapabilities.maxImageExtent.height
-//         );
-//     }
-
-//     Log(RYME_ANCHOR, "Vulkan Swap Chain Extent: {}x{}",
-//         _vkSwapChainExtent.width,
-//         _vkSwapChainExtent.height
-//     );
-
-//     uint32_t imageCount = std::clamp(
-//         (unsigned)_backbufferCount,
-//         surfaceCapabilities.minImageCount,
-//         surfaceCapabilities.maxImageCount
-//     );
-
-//     Log(RYME_ANCHOR, "Vulkan Swap Chain Image Count: {}", imageCount);
-
-//     VkSwapchainKHR oldSwapChain = _vkSwapChain;
-
-//     uint32_t queueFamilyIndices[] = {
-//         _vkGraphicsQueueFamilyIndex,
-//         _vkPresentQueueFamilyIndex,
-//     };
-
-//     VkSharingMode sharingMode = (
-//         _vkGraphicsQueueFamilyIndex == _vkPresentQueueFamilyIndex
-//         ? VK_SHARING_MODE_EXCLUSIVE
-//         : VK_SHARING_MODE_CONCURRENT
-//     );
-
-//     VkSwapchainCreateInfoKHR swapChainCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-//         .pNext = nullptr,
-//         .flags = 0,
-//         .surface = _vkSurface,
-//         .minImageCount = imageCount,
-//         .imageFormat = surfaceFormat.format,
-//         .imageColorSpace = surfaceFormat.colorSpace,
-//         .imageExtent = _vkSwapChainExtent,
-//         .imageArrayLayers = 1,
-//         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-//         .imageSharingMode = sharingMode,
-//         .queueFamilyIndexCount = 2,
-//         .pQueueFamilyIndices = queueFamilyIndices,
-//         .preTransform = surfaceCapabilities.currentTransform,
-//         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-//         .presentMode = swapChainPresentMode,
-//         .clipped = VK_TRUE,
-//         .oldSwapchain = oldSwapChain,
-//     };
-
-//     vkResult = vkCreateSwapchainKHR(
-//         Device,
-//         &swapChainCreateInfo,
-//         nullptr,
-//         &_vkSwapChain
-//     );
-
-//     if (vkResult != VK_SUCCESS) {
-//         throw Exception("vkCreateSwapchainKHR() failed");
-//     }
-
-//     if (oldSwapChain) {
-//         vkDestroySwapchainKHR(Device, oldSwapChain, nullptr);
-//         oldSwapChain = VK_NULL_HANDLE;
-//     }
-
-//     _vkSwapChainImageFormat = surfaceFormat.format;
-
-//     vkGetSwapchainImagesKHR(
-//         Device,
-//         _vkSwapChain,
-//         &imageCount,
-//         nullptr
-//     );
-
-//     _vkSwapChainImageList.resize(imageCount, VK_NULL_HANDLE);
-
-//     vkGetSwapchainImagesKHR(
-//         Device,
-//         _vkSwapChain,
-//         &imageCount,
-//         _vkSwapChainImageList.data()
-//     );
-
-//     _vkSwapChainImageViewList.resize(imageCount, VK_NULL_HANDLE);
-
-//     for (unsigned i = 0; i < _backbufferCount; ++i) {
-//         if (_vkSwapChainImageViewList[i]) {
-//             vkDestroyImageView(Device, _vkSwapChainImageViewList[i], nullptr);
-//             _vkSwapChainImageViewList[i] = VK_NULL_HANDLE;
-//         }
-
-//         VkImageViewCreateInfo imageViewCreateInfo = {
-//             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-//             .pNext = nullptr,
-//             .flags = 0,
-//             .image = _vkSwapChainImageList[i],
-//             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-//             .format = _vkSwapChainImageFormat,
-//             .subresourceRange = {
-//                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                 .baseMipLevel = 0,
-//                 .levelCount = 1,
-//                 .baseArrayLayer = 0,
-//                 .layerCount = 1,
-//             },
-//         };
-
-//         vkResult = vkCreateImageView(
-//             Device,
-//             &imageViewCreateInfo,
-//             nullptr,
-//             &_vkSwapChainImageViewList[i]
-//         );
-        
-//         if (vkResult != VK_SUCCESS) {
-//             throw Exception("vkCreateImageView() failed for image view #{}", i);
-//         }
-
-//         _backbufferCount = imageCount;
-
-//         initDepthBuffer();
-//         initRenderPass();
-//         // initDescriptorPool();
-//         // initPipelineLayout();
-//         // initFramebuffers();
-//         // initCommandBuffers();
-//     }
-// }
-
-// void termSwapChain()
-// {
-//     // termCommandBuffers();
-//     // termFramebuffers();
-//     // termPipelineLayout();
-//     // termDescriptorPool();
-//     termRenderPass();
-//     termDepthBuffer();
-
-//     for (auto& imageView : _vkSwapChainImageViewList) {
-//         if (imageView) {
-//             vkDestroyImageView(Device, imageView, nullptr);
-//             imageView = nullptr;
-//         }
-//     }
-
-//     if (_vkSwapChain) {
-//         vkDestroySwapchainKHR(Device, _vkSwapChain, nullptr);
-//         _vkSwapChain = VK_NULL_HANDLE;
-//     }
-// }
-
-// void resetSwapChain()
-// {
-//     if (_vkSwapChain) {
-//         vkDeviceWaitIdle(Device);
-
-//         initSwapChain();
-//     }
-// }
-
-// void initSyncObjects()
-// {
-//     VkResult vkResult;
-
-//     _vkImageAvailableSemaphoreList.resize(_backbufferCount, VK_NULL_HANDLE);
-//     _vkRenderingFinishedSemaphoreList.resize(_backbufferCount, VK_NULL_HANDLE);
-//     _vkInFlightFenceList.resize(_backbufferCount, VK_NULL_HANDLE);
-//     _vkImageInFlightList.resize(_backbufferCount, VK_NULL_HANDLE);
-
-//     VkSemaphoreCreateInfo semaphoreCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = 0,
-//     };
-
-//     VkFenceCreateInfo fenceCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-//     };
-
-//     for (unsigned i = 0; i < _backbufferCount; ++i) {
-//         vkResult = vkCreateSemaphore(
-//             Device,
-//             &semaphoreCreateInfo,
-//             nullptr,
-//             &_vkImageAvailableSemaphoreList[i]
-//         );
-
-//         if (vkResult != VK_SUCCESS) {
-//             throw Exception("vkCreateSemaphore() failed");
-//         }   
-
-//         vkResult = vkCreateSemaphore(
-//             Device,
-//             &semaphoreCreateInfo,
-//             nullptr,
-//             &_vkRenderingFinishedSemaphoreList[i]
-//         );
-
-//         if (vkResult != VK_SUCCESS) {
-//             throw Exception("vkCreateSemaphore() failed");
-//         }
-
-//         vkResult = vkCreateFence(
-//             Device,
-//             &fenceCreateInfo,
-//             nullptr,
-//             &_vkInFlightFenceList[i]
-//         );
-
-//         if (vkResult != VK_SUCCESS) {
-//             throw Exception("vkCreateFence() failed");
-//         }
-//     }
-// }
-
-// void termSyncObjects()
-// {
-//     for (auto& fence : _vkImageInFlightList) {
-//         // TODO: This could blow up be careful.
-//         vkDestroyFence(Device, fence, VK_NULL_HANDLE);
-//         fence = VK_NULL_HANDLE;
-//     }
-
-//     for (auto& fence : _vkInFlightFenceList) {
-//         vkDestroyFence(Device, fence, VK_NULL_HANDLE);
-//         fence = VK_NULL_HANDLE;
-//     }
-
-//     for (auto& semaphore : _vkRenderingFinishedSemaphoreList) {
-//         vkDestroySemaphore(Device, semaphore, VK_NULL_HANDLE);
-//         semaphore = VK_NULL_HANDLE;
-//     }
-
-//     for (auto& semaphore : _vkImageAvailableSemaphoreList) {
-//         vkDestroySemaphore(Device, semaphore, VK_NULL_HANDLE);
-//         semaphore = VK_NULL_HANDLE;
-//     }
-// }
-
-// void initDepthBuffer()
-// {
-//     VkResult vkResult;
-
-//     termDepthBuffer();
-
-//     // TODO: Investigate
-//     List<VkFormat> potentialFormatList = {
-//         VK_FORMAT_D32_SFLOAT,
-//         VK_FORMAT_D32_SFLOAT_S8_UINT,
-//         VK_FORMAT_D24_UNORM_S8_UINT,
-//         VK_FORMAT_D16_UNORM,
-//         VK_FORMAT_D16_UNORM_S8_UINT,
-//     };
-
-//     _vkDepthImageFormat = VK_FORMAT_UNDEFINED;
-
-//     for (auto format : potentialFormatList) {
-//         VkFormatProperties formatProperties;
-//         vkGetPhysicalDeviceFormatProperties(_vkPhysicalDevice, format, &formatProperties);
-
-//         bool isSuitable = (
-//             (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) > 0
-//         );
-
-//         if (isSuitable) {
-//             _vkDepthImageFormat = format;
-//             break;
-//         }
-//     }
-
-//     if (_vkDepthImageFormat == VK_FORMAT_UNDEFINED) {
-//         throw Exception("Unable to find suitable depth buffer image format");
-//     }
-
-//     Log(RYME_ANCHOR, "Vulkan Depth Buffer Image Format: {}",
-//         std::to_string(_vkDepthImageFormat));
-
-//     VkImageCreateInfo imageCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = 0,
-//         .imageType = VK_IMAGE_TYPE_2D,
-//         .format = _vkDepthImageFormat,
-//         .extent = {
-//             .width = _vkSwapChainExtent.width,
-//             .height = _vkSwapChainExtent.height,
-//             .depth = 1,
-//         },
-//         .mipLevels = 1,
-//         .arrayLayers = 1,
-//         .samples = VK_SAMPLE_COUNT_1_BIT,
-//         .tiling = VK_IMAGE_TILING_OPTIMAL,
-//         .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-//         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-//         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-//     };
-
-//     VmaAllocationCreateInfo allocationCreateInfo = {
-//         .flags = 0,
-//         .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-//     };
-
-//     vkResult = vmaCreateImage(
-//         Allocator,
-//         &imageCreateInfo,
-//         &allocationCreateInfo,
-//         &_vkDepthImage,
-//         &_vmaDepthImageAllocation,
-//         nullptr
-//     );
-
-//     if (vkResult != VK_SUCCESS) {
-//         throw Exception("vmaCreateImage() failed, unable to create depth buffer image");
-//     }
-
-//     VkImageViewCreateInfo imageViewCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = 0,
-//         .image = _vkDepthImage,
-//         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-//         .format = _vkDepthImageFormat,
-//         .subresourceRange = {
-//             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-//             .baseMipLevel = 0,
-//             .levelCount = 1,
-//             .baseArrayLayer = 0,
-//             .layerCount = 1,
-//         },
-//     };
-
-//     vkResult = vkCreateImageView(
-//         Device,
-//         &imageViewCreateInfo,
-//         nullptr,
-//         &_vkDepthImageView
-//     );
-
-//     if (vkResult != VK_SUCCESS) {
-//         throw Exception("vkCreateImageView failed, unable to create depth buffer image view");
-//     }
-// }
-
-// void termDepthBuffer()
-// {
-//     if (_vkDepthImage) {
-//         vkDestroyImage(Device, _vkDepthImage, nullptr);
-//         _vkDepthImage = VK_NULL_HANDLE;
-//     }
-
-//     if (_vmaDepthImageAllocation) {
-//         vmaFreeMemory(Allocator, _vmaDepthImageAllocation);
-//         _vmaDepthImageAllocation = VK_NULL_HANDLE;
-//     }
-
-//     if (_vkDepthImageView) {
-//         vkDestroyImageView(Device, _vkDepthImageView, nullptr);
-//         _vkDepthImageView = VK_NULL_HANDLE;
-//     }
-// }
-
-// void initRenderPass()
-// {
-//     VkResult vkResult;
-
-//     termRenderPass();
-
-//     VkAttachmentDescription colorAttachmentDescription = {
-//         .flags = 0,
-//         .format = _vkSwapChainImageFormat,
-//         .samples = VK_SAMPLE_COUNT_1_BIT,
-//         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-//         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-//         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-//         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-//         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-//         .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-//     };
-
-//     VkAttachmentDescription depthAttachmentDescription = {
-//         .flags = 0,
-//         .format = _vkDepthImageFormat,
-//         .samples = VK_SAMPLE_COUNT_1_BIT,
-//         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-//         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-//         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-//         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-//         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-//         .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-//     };
-
-//     Array<VkAttachmentDescription, 2> attachmentList = {
-//         colorAttachmentDescription,
-//         depthAttachmentDescription,
-//     };
-
-//     VkAttachmentReference colorAttachmentReference = {
-//         .attachment = 0,
-//         .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-//     };
-
-//     VkAttachmentReference depthAttachmentReference = {
-//         .attachment = 1,
-//         .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-//     };
-
-//     Array<VkSubpassDescription, 1> subpassDescriptionList = {
-//         VkSubpassDescription {
-//             .flags = 0,
-//             .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-//             .inputAttachmentCount = 0,
-//             .pInputAttachments = nullptr,
-//             .colorAttachmentCount = 1,
-//             .pColorAttachments = &colorAttachmentReference,
-//             .pResolveAttachments = nullptr,
-//             .pDepthStencilAttachment = &depthAttachmentReference,
-//             .preserveAttachmentCount = 0,
-//             .pPreserveAttachments = nullptr,
-//         },
-//     };
-
-//     Array<VkSubpassDependency, 1> subpassDependencyList = {
-//         VkSubpassDependency {
-//             .srcSubpass = VK_SUBPASS_EXTERNAL,
-//             .dstSubpass = 0,
-//             .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-//             .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-//             .srcAccessMask = 0,
-//             .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-//         },
-//     };
-
-//     VkRenderPassCreateInfo renderPassCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = 0,
-//         .attachmentCount = static_cast<uint32_t>(attachmentList.size()),
-//         .pAttachments = attachmentList.data(),
-//         .subpassCount = static_cast<uint32_t>(subpassDescriptionList.size()),
-//         .pSubpasses = subpassDescriptionList.data(),
-//         .dependencyCount = static_cast<uint32_t>(subpassDependencyList.size()),
-//         .pDependencies = subpassDependencyList.data(),
-//     };
-
-//     vkResult = vkCreateRenderPass(Device, &renderPassCreateInfo, nullptr, &_vkRenderPass);
-
-//     if (vkResult != VK_SUCCESS) {
-//         throw Exception("vkCreateRenderPass() failed");
-//     }
-// }
-
-// void termRenderPass()
-// {
-//     if (_vkRenderPass) {
-//         vkDestroyRenderPass(Device, _vkRenderPass, nullptr);
-//         _vkRenderPass = VK_NULL_HANDLE;
-//     }
-// }
-
-// void initDescriptorPool()
-// {
-//     VkResult vkResult;
-
-//     termDescriptorPool();
-
-//     Array<VkDescriptorPoolSize, 1> descriptorPoolSizeList = {
-//         VkDescriptorPoolSize {
-//             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-//             .descriptorCount = static_cast<uint32_t>(1), // materialList.size() + meshList.size(), can never be 0
-//         },
-//     };
-
-//     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = 0,
-//         .maxSets = _backbufferCount,
-//         .poolSizeCount = static_cast<uint32_t>(descriptorPoolSizeList.size()),
-//         .pPoolSizes = descriptorPoolSizeList.data(),
-//     };
-
-//     vkResult = vkCreateDescriptorPool(
-//         Device,
-//         &descriptorPoolCreateInfo,
-//         nullptr,
-//         &_vkDescriptorPool
-//     );
-
-//     if (vkResult != VK_SUCCESS) {
-//         throw Exception("vkCreateDescriptorPool() failed");
-//     }
-
-//     Array<VkDescriptorSetLayoutBinding, 2> descriptorSetLayoutBindingList = {
-//         VkDescriptorSetLayoutBinding {
-//             .binding = 0U, // TODO: ShaderGlobals::Binding,
-//             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-//             .descriptorCount = 1,
-//             .stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-//             .pImmutableSamplers = nullptr,
-//         },
-//         VkDescriptorSetLayoutBinding {
-//             .binding = 1U, //TODO: ShaderTransform::Binding,
-//             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-//             .descriptorCount = 1,
-//             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-//             .pImmutableSamplers = nullptr,
-//         },
-//         // TODO: ShaderMaterial
-//     };
-
-//     _vkDescriptorSetLayoutList.resize(1, VK_NULL_HANDLE);
-
-//     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
-//         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-//         .pNext = nullptr,
-//         .flags = 0,
-//         .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindingList.size()),
-//         .pBindings = descriptorSetLayoutBindingList.data(),
-//     };
-
-//     vkResult = vkCreateDescriptorSetLayout(
-//         Device,
-//         &descriptorSetLayoutCreateInfo,
-//         nullptr,
-//         &_vkDescriptorSetLayoutList[0]
-//     );
-
-//     if (vkResult != VK_SUCCESS) {
-//         throw Exception("vkCreateDescriptorSetLayout() failed");
-//     }
-// }
-
-// void termDescriptorPool()
-// {
-//     for (auto& descriptorSetLayout : _vkDescriptorSetLayoutList) {
-//         if (descriptorSetLayout) {
-//             vkDestroyDescriptorSetLayout(Device, descriptorSetLayout, nullptr);
-//             descriptorSetLayout = VK_NULL_HANDLE;
-//         }
-//     }
-
-//     if (_vkDescriptorPool) {
-//         vkDestroyDescriptorPool(Device, _vkDescriptorPool, nullptr);
-//         _vkDescriptorPool = VK_NULL_HANDLE;
-//     }
-// }
-
 
 RYME_API
 Tuple<vk::Buffer, VmaAllocation> CreateBuffer(

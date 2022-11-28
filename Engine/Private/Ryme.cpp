@@ -9,7 +9,7 @@ String _applicationName;
 Version _applicationVersion;
 
 RYME_API
-void Init(InitInfo initInfo /*= {}*/)
+void Init(const InitInfo& initInfo /*= {}*/)
 {
     RYME_BENCHMARK_START();
 
@@ -31,7 +31,7 @@ void Init(InitInfo initInfo /*= {}*/)
 
     Script::Init();
 
-    Graphics::Init(initInfo.WindowTitle, initInfo.WindowSize);
+    Graphics::Init(initInfo);
 
     RYME_BENCHMARK_END();
 }
@@ -59,8 +59,12 @@ void Run()
             if (e.type == SDL_QUIT) {
                 _isRunning = false;
             }
+            else if (e.type == SDL_WINDOWEVENT) {
+                Graphics::HandleEvent(e);
+            }
         }
 
+        Graphics::Render();
     }
 
     _isRunning = false;

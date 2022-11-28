@@ -106,7 +106,8 @@ struct RYME_API Version
     inline String ToString() const
     {
         return fmt::format("{}.{}.{}", 
-            Major, Minor, Patch);
+            Major, Minor, Patch
+        );
     }
 
     inline uint32_t ToVkVersion() const

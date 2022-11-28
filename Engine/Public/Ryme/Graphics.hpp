@@ -2,6 +2,8 @@
 #define RYME_GRAPHICS_HPP
 
 #include <Ryme/Config.hpp>
+#include <Ryme/Color.hpp>
+#include <Ryme/InitInfo.hpp>
 #include <Ryme/Math.hpp>
 #include <Ryme/String.hpp>
 
@@ -28,10 +30,16 @@ RYME_API
 void ScriptInit(py::module);
 
 RYME_API
-void Init(String windowTitle, Vec2i windowSize);
+void Init(const InitInfo& initInfo);
 
 RYME_API
 void Term();
+
+RYME_API
+void Render();
+
+RYME_API
+void HandleEvent(SDL_Event& event);
 
 RYME_API
 void SetWindowTitle(String windowTitle);

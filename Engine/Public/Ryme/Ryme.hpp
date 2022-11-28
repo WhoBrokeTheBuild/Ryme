@@ -2,9 +2,11 @@
 #define RYME_HPP
 
 #include <Ryme/Config.hpp>
+#include <Ryme/Color.hpp>
 #include <Ryme/Containers.hpp>
 #include <Ryme/Exception.hpp>
 #include <Ryme/Graphics.hpp>
+#include <Ryme/InitInfo.hpp>
 #include <Ryme/Log.hpp>
 #include <Ryme/Math.hpp>
 #include <Ryme/Path.hpp>
@@ -16,20 +18,8 @@
 
 namespace ryme {
 
-struct RYME_API InitInfo
-{
-    String ApplicationName;
-
-    Version ApplicationVersion;
-
-    String WindowTitle = RYME_PROJECT_NAME " (" RYME_VERSION_STRING ")";
-
-    Vec2i WindowSize = { 640, 480 };
-
-}; // struct InitInfo
-
 RYME_API
-void Init(InitInfo initInfo = {});
+void Init(const InitInfo& initInfo = {});
 
 RYME_API
 void Term();
