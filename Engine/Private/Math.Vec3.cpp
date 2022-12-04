@@ -4,11 +4,11 @@ namespace ryme {
 
 namespace Math {
 
-void BindVec3(py::module m)
+void bindVec3(py::module m)
 {
-    BindVector<3, float>(m, "Vec3");
-    BindVector<3, int32_t>(m, "Vec3i");
-    BindVector<3, uint32_t>(m, "Vec3u");
+    bindVector<3, float>(m, "Vec3");
+    bindVector<3, int32_t>(m, "Vec3i");
+    bindVector<3, uint32_t>(m, "Vec3u");
 }
 
 } // namespace Math

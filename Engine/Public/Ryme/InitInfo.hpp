@@ -18,7 +18,7 @@ struct RYME_API InitInfo
 
     Vec2i WindowSize = { 640, 480 };
 
-    Color ClearColor = Color::CornflowerBlue;
+    Vec4 ClearColor = Color::CornflowerBlue;
 
 }; // struct InitInfo
 

@@ -29,7 +29,7 @@ Vec2i _windowSize;
 
 String _windowTitle;
 
-Color _clearColor;
+Vec4 _clearColor;
 
 // Vulkan Instance
 
@@ -189,20 +189,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
     }
 
     return VK_FALSE;
-}
-
-RYME_API
-void ScriptInit(py::module m)
-{
-    // m.def_submodule("Graphics")
-    //     .def("GetWindowSize", []() {
-    //         int width, height;
-    //         SDL_GetWindowSize(_sdlWindow, &width, &height);
-    //         return std::make_tuple(width, height);
-    //     })
-    //     .def("SetWindowSize", [](int width, int height) {
-    //         SDL_SetWindowSize(_sdlWindow, width, height);
-    //     });
 }
 
 void initWindow()
@@ -805,15 +791,15 @@ void fillCommandBuffers()
         auto commandBufferBeginInfo = vk::CommandBufferBeginInfo();
         commandBuffer.begin(commandBufferBeginInfo);
 
-        Color clearColor = _clearColor;
+        Vec4 clearColor = _clearColor;
 
         // If our surface is sRGB, Vulkan will try to convert our color to sRGB
         // This fails and washes out the color, so we convert to linear to account for it        
         if (_swapchainColorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-            clearColor = clearColor.ToLinear();
+            clearColor = Color::ToLinear(clearColor);
         }
 
-        auto clearValueArray = clearColor.ToArray();
+        auto clearValueArray = Color::ToArray(clearColor);
 
         Array<vk::ClearValue, 2> clearValueList = {
             vk::ClearValue(clearValueArray),
@@ -1400,6 +1386,20 @@ void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region
     _graphicsQueue.waitIdle();
 
     Device.freeCommandBuffers(_commandPool, commandBufferList);
+}
+
+RYME_API
+void ScriptInit(py::module m)
+{
+    // m.def_submodule("Graphics")
+    //     .def("GetWindowSize", []() {
+    //         int width, height;
+    //         SDL_GetWindowSize(_sdlWindow, &width, &height);
+    //         return std::make_tuple(width, height);
+    //     })
+    //     .def("SetWindowSize", [](int width, int height) {
+    //         SDL_SetWindowSize(_sdlWindow, width, height);
+    //     });
 }
 
 } // namespace Graphics

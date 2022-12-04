@@ -18,6 +18,7 @@ PYBIND11_EMBEDDED_MODULE(ryme, m) {
     Math::ScriptInit(m);
     Version::ScriptInit(m);
     Path::ScriptInit(m);
+    Color::ScriptInit(m);
     Graphics::ScriptInit(m);
 
     // m.def("Init", Init);

@@ -127,9 +127,10 @@ struct RYME_API Version
     ///
     static int Compare(const Version& a, const Version& b);
 
+public:
 
     static void ScriptInit(py::module);
-
+    
 }; // struct Version
 
 } // namespace ryme

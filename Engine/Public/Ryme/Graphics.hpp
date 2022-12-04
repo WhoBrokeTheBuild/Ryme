@@ -27,9 +27,6 @@ extern VmaAllocator Allocator;
 extern vk::RenderPass RenderPass;
 
 RYME_API
-void ScriptInit(py::module);
-
-RYME_API
 void Init(const InitInfo& initInfo);
 
 RYME_API
@@ -72,6 +69,9 @@ void CopyBuffer(vk::Buffer src, vk::Buffer dst, vk::BufferCopy region);
 
 RYME_API
 void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region);
+
+RYME_API
+void ScriptInit(py::module);
 
 } // namespace Graphics
 

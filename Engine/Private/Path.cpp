@@ -21,6 +21,159 @@
 
 namespace ryme {
 
+List<Path> Path::ParsePathList(StringView str)
+{
+    List<Path> pathList;
+
+    auto next = str.find(ListSeparator);
+    while (next != String::npos) {
+        pathList.push_back(Path(str.substr(0, next)));
+        str = str.substr(next + 1);
+        next = str.find(ListSeparator);
+    }
+
+    return pathList;
+}
+
+Path::Path(const Path& rhs)
+    : _path(rhs._path)
+{ }
+
+Path::Path(const String& str)
+    : _path(str)
+{
+    normalize();
+}
+
+Path::Path(const StringView& str)
+    : _path(str)
+{
+    normalize();
+}
+
+Path::Path(const char * cstr)
+    : _path(cstr)
+{
+    normalize();
+}
+
+Path& Path::Append(const Path& rhs)
+{
+    if (IsAbsolute() && rhs.IsAbsolute()) {
+        // Unable to append absolute paths
+        _path = rhs._path;
+        return *this;
+    }
+
+    if (_path.back() != Separator) {
+        _path += Separator;
+    }
+
+    _path += rhs._path;
+    return *this;
+}
+
+Path& Path::Concatenate(const Path& rhs)
+{
+    _path += rhs._path;
+    return *this;
+}
+
+bool Path::Equals(const Path& rhs) const
+{
+    #if defined(RYME_PLATFORM_WINDOWS)
+
+        auto pathA = UTF::CaseFold(_path);
+        auto pathB = UTF::CaseFold(rhs._path);
+        
+        return (pathA == pathB);
+
+    #else
+
+        return (_path == rhs._path);
+
+    #endif
+}
+
+void Path::normalize()
+{
+    if (_path.empty()) {
+        return;
+    }
+
+    if (!UTF::IsValid(_path)) {
+        _path.clear();
+        throw Exception("Path is not a valid Unicode string");
+    }
+
+    // TODO: Strip windows long filename marker "\\?\"
+
+    #if defined(RYME_PLATFORM_WINDOWS)
+
+        // Convert separators to native format
+        for (auto& c : _path) {
+            if (c == '/') {
+                c = '\\';
+            }
+        }
+
+    #endif
+    
+    // TODO: Handle network paths
+
+    // Strip duplicate slashes, e.g. /path//to/file
+    auto newEnd = std::unique(
+        _path.begin(), 
+        _path.end(),
+        [](char lhs, char rhs) {
+            return (lhs == rhs && lhs == Separator);
+        }
+    );
+
+    _path.erase(newEnd, _path.end());
+}
+
+size_t Path::getRootNameLength() const
+{
+    #if defined(RYME_PLATFORM_WINDOWS)
+
+        // Check for windows drive letter, such as "C:"
+        if (_path.length() >= 2 && _path[1] == ':') {
+            char first = std::toupper(_path[0]);
+            if (first >= 'A' && first <= 'Z') {
+                return 2;
+            }
+        }
+
+    #endif
+
+    // TODO: Handle network paths
+
+    // There is no root name
+    return 0;
+}
+
+Path GetCurrentPath()
+{
+#if defined(RYME_PLATFORM_WINDOWS)
+
+    std::unique_ptr<char> cwd(_getcwd(nullptr, 0));
+    if (cwd) {
+        return Path(cwd.get());
+    }
+
+#else
+
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd))) {
+        return Path(cwd);
+    }
+
+#endif
+    
+    return Path();
+}
+
 void Path::ScriptInit(py::module m)
 {
     py::class_<Path>(m, "Path")
@@ -83,171 +236,18 @@ void Path::ScriptInit(py::module m)
     m.def("GetAssetPathList", GetAssetPathList);
 }
 
-List<Path> Path::ParsePathList(StringView str)
-{
-    List<Path> pathList;
-
-    auto next = str.find(ListSeparator);
-    while (next != String::npos) {
-        pathList.push_back(Path(str.substr(0, next)));
-        str = str.substr(next + 1);
-        next = str.find(ListSeparator);
-    }
-
-    return pathList;
-}
-
-Path::Path(const Path& rhs)
-    : _path(rhs._path)
-{ }
-
-Path::Path(const String& str)
-    : _path(str)
-{
-    Normalize();
-}
-
-Path::Path(const StringView& str)
-    : _path(str)
-{
-    Normalize();
-}
-
-Path::Path(const char * cstr)
-    : _path(cstr)
-{
-    Normalize();
-}
-
-Path& Path::Append(const Path& rhs)
-{
-    if (IsAbsolute() && rhs.IsAbsolute()) {
-        // Unable to append absolute paths
-        _path = rhs._path;
-        return *this;
-    }
-
-    if (_path.back() != Separator) {
-        _path += Separator;
-    }
-
-    _path += rhs._path;
-    return *this;
-}
-
-Path& Path::Concatenate(const Path& rhs)
-{
-    _path += rhs._path;
-    return *this;
-}
-
-bool Path::Equals(const Path& rhs) const
-{
-    #if defined(RYME_PLATFORM_WINDOWS)
-
-        auto pathA = UTF::CaseFold(_path);
-        auto pathB = UTF::CaseFold(rhs._path);
-        
-        return (pathA == pathB);
-
-    #else
-
-        return (_path == rhs._path);
-
-    #endif
-}
-
-void Path::Normalize()
-{
-    if (_path.empty()) {
-        return;
-    }
-
-    if (!UTF::IsValid(_path)) {
-        _path.clear();
-        throw Exception("Path is not a valid Unicode string");
-    }
-
-    // TODO: Strip windows long filename marker "\\?\"
-
-    #if defined(RYME_PLATFORM_WINDOWS)
-
-        // Convert separators to native format
-        for (auto& c : _path) {
-            if (c == '/') {
-                c = '\\';
-            }
-        }
-
-    #endif
-    
-    // TODO: Handle network paths
-
-    // Strip duplicate slashes, e.g. /path//to/file
-    auto newEnd = std::unique(
-        _path.begin(), 
-        _path.end(),
-        [](char lhs, char rhs) {
-            return (lhs == rhs && lhs == Separator);
-        }
-    );
-
-    _path.erase(newEnd, _path.end());
-}
-
-size_t Path::GetRootNameLength() const
-{
-    #if defined(RYME_PLATFORM_WINDOWS)
-
-        // Check for windows drive letter, such as "C:"
-        if (_path.length() >= 2 && _path[1] == ':') {
-            char first = std::toupper(_path[0]);
-            if (first >= 'A' && first <= 'Z') {
-                return 2;
-            }
-        }
-
-    #endif
-
-    // TODO: Handle network paths
-
-    // There is no root name
-    return 0;
-}
-
-Path GetCurrentPath()
-{
-#if defined(RYME_PLATFORM_WINDOWS)
-
-    std::unique_ptr<char> cwd(_getcwd(nullptr, 0));
-    if (cwd) {
-        return Path(cwd.get());
-    }
-
-#else
-
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd))) {
-        return Path(cwd);
-    }
-
-#endif
-    
-    return Path();
-}
-
-List<Path> _assetPathList;
-
 List<Path> GetAssetPathList()
 {
-    if (_assetPathList.empty()) {
+    static List<Path> assetPathList;
+    
+    if (assetPathList.empty()) {
         char * env = getenv("RYME_ASSET_PATH");
         if (env) {
-            _assetPathList = Path::ParsePathList(env);
+            assetPathList = Path::ParsePathList(env);
         }
     }
 
-    return _assetPathList;
+    return assetPathList;
 }
 
 } // namespace ryme

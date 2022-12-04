@@ -130,7 +130,7 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
     // TODO: Improve?
     _samplerCreateInfo = samplerCreateInfo;
     
-    Log(RYME_ANCHOR, "Loaded '{}'", fullPath);
+    Log(RYME_ANCHOR, "Loaded '{}'", _path);
 
     _isLoaded = true;
     return true;

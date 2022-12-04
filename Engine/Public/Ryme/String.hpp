@@ -21,30 +21,37 @@ using WideString = std::wstring;
 
 using WideStringView = std::wstring_view;
 
-inline bool StartsWith(StringView str, StringView value)
+inline bool StringContains(StringView haystack, StringView needle)
 {
-    if (str.size() < value.size()) {
-        return false;
-    }
-
-    return std::equal(
-        value.begin(),
-        value.end(),
-        str.begin()
-    );
+    return (haystack.find(needle) != String::npos);
 }
 
-inline bool EndsWith(StringView str, StringView value)
+inline constexpr size_t StringLength(const char * str)
 {
-    if (str.size() < value.size()) {
-        return false;
-    }
+    return std::char_traits<char>::length(str);
+}
 
-    return std::equal(
-        value.begin(),
-        value.end(),
-        str.end() - value.size()
-    );
+inline StringView StripLeft(StringView str)
+{
+    while (!str.empty() && std::isspace(str.front())) {
+        str.remove_prefix(1);
+    }
+    return str;
+}
+
+inline StringView StripRight(StringView str)
+{
+    while (!str.empty() && std::isspace(str.back())) {
+        str.remove_suffix(1);
+    }
+    return str;
+}
+
+inline StringView Strip(StringView str)
+{
+    str = StripLeft(str);
+    str = StripRight(str);
+    return str;
 }
 
 RYME_API

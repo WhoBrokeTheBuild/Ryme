@@ -1,6 +1,8 @@
 #include <Ryme/Math.hpp>
 #include <Ryme/Exception.hpp>
 
+#include <Ryme/ThirdParty/fmt.hpp>
+
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
 
@@ -9,7 +11,7 @@ namespace ryme {
 namespace Math {
 
 template <glm::length_t L, typename T, glm::qualifier Q = glm::packed>
-void BindMatrix(py::module m, const char * name)
+void bindMatrix(py::module m, const char * name)
 {
     using Matrix = glm::mat<L, L, T, Q>;
     using Vector = typename Matrix::col_type;
@@ -146,12 +148,11 @@ void BindMatrix(py::module m, const char * name)
     py::implicitly_convertible<py::array_t<T>, Matrix>();
 }
 
-void BindMat(py::module m)
+void bindMat(py::module m)
 {
-    BindMatrix<2, float>(m, "Mat2");
-    BindMatrix<3, float>(m, "Mat3");
-    BindMatrix<4, float>(m, "Mat4");
-
+    bindMatrix<2, float>(m, "Mat2");
+    bindMatrix<3, float>(m, "Mat3");
+    bindMatrix<4, float>(m, "Mat4");
 }
 
 } // namespace Math

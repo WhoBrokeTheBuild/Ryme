@@ -9,7 +9,7 @@
 
 namespace ryme {
 
-struct Vertex
+struct RYME_API Vertex
 {
     struct AttributeLocation
     {
@@ -17,33 +17,30 @@ struct Vertex
         static inline uint32_t Normal    = 1;
         static inline uint32_t Tangent   = 2;
         static inline uint32_t Color     = 3;
-        static inline uint32_t TexCoord1 = 4;
-        static inline uint32_t TexCoord2 = 5;
-        static inline uint32_t Joints    = 6;
-        static inline uint32_t Weights   = 7;
+        static inline uint32_t TexCoord  = 4;
+        static inline uint32_t Joints    = 5;
+        static inline uint32_t Weights   = 6;
     };
 
-    Vec4 Position;
+    alignas(16) Vec4 Position;
 
-    Vec4 Normal;
+    alignas(16) Vec4 Normal;
 
-    Vec4 Tangent;
+    alignas(16) Vec4 Tangent;
     
-    Vec4 Color;
+    alignas(16) Vec4 Color;
 
-    Vec2 TexCoord1;
+    alignas(8) Vec2 TexCoord;
 
-    Vec2 TexCoord2;
+    alignas(8) Vec2u Joints;
 
-    Vec2u Joints;
-
-    Vec4 Weights;
+    alignas(16) Vec4 Weights;
     
 }; // struct Vertex
 
 static_assert(
-    sizeof(Vertex) == 104,
-    "sizeof(Vertex) is not tightly packed"
+    sizeof(Vertex) == 96,
+    "sizeof(Vertex) does not match GLSL layout std140"
 );
 
 Span<vk::VertexInputBindingDescription> GetVertexInputBindingDescriptionList();

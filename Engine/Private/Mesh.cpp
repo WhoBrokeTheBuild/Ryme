@@ -17,18 +17,17 @@ bool Mesh::LoadFromFile(const Path& path, bool search /*= true*/)
 {
     const Path& ext = path.GetExtension();
 
-    if (ext == ".obj") {
-        LoadOBJ(path, search);
+    if (ext == "obj") {
+        _isLoaded = LoadOBJ(path, search);
     }
-    else if (ext == ".gltf" || ext == ".glb") {
-        LoadGLTF2(path, search);
+    else if (ext == "gltf" || ext == "glb") {
+        _isLoaded = LoadGLTF2(path, search);
     }
     else {
         throw Exception("Unknown Mesh file format '{}'", ext);
     }
 
-    _isLoaded = true;
-    return true;
+    return _isLoaded;
 }
 
 void Mesh::Free()

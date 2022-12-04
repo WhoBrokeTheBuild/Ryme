@@ -38,10 +38,10 @@ template <class T>
 using List = std::vector<T>;
 
 template <class T>
-inline bool ListContains(const List<T>& list, const T& value)
+inline bool ListContains(const List<T>& haystack, const T& needle)
 {
-    auto it = std::find(std::begin(list), std::end(list), value);
-    return (it != list.end());
+    auto it = std::find(std::begin(haystack), std::end(haystack), needle);
+    return (it != haystack.end());
 }
 
 } // namespace ryme

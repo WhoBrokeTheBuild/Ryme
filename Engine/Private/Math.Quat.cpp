@@ -1,17 +1,17 @@
 #include <Ryme/Math.hpp>
 #include <Ryme/Exception.hpp>
 
+#include <Ryme/ThirdParty/fmt.hpp>
+
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
-
-#include <fmt/format.h>
 
 namespace ryme {
 
 namespace Math {
 
 template <typename T, glm::qualifier Q = glm::packed>
-void BindQuaternion(py::module m, const char * name)
+void bindQuaternion(py::module m, const char * name)
 {
     using Quat = glm::qua<T, Q>;
 
@@ -138,9 +138,9 @@ void BindQuaternion(py::module m, const char * name)
     py::implicitly_convertible<py::array_t<T>, Quat>();
 }
 
-void BindQuat(py::module m)
+void bindQuat(py::module m)
 {
-    BindQuaternion<float>(m, "Quat");
+    bindQuaternion<float>(m, "Quat");
 }
 
 } // namespace Math

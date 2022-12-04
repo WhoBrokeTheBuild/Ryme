@@ -2,14 +2,14 @@
 
 namespace ryme {
     
-Array<vk::VertexInputBindingDescription, 1> _vertexInputBindingDescriptionList = {
+vk::VertexInputBindingDescription _vertexInputBindingDescriptionList[] = {
     vk::VertexInputBindingDescription()
         .setBinding(0)
         .setStride(sizeof(Vertex))
         .setInputRate(vk::VertexInputRate::eVertex)
 };
 
-Array<vk::VertexInputAttributeDescription, 8> _vertexInputAttributeDescriptionList = {
+vk::VertexInputAttributeDescription _vertexInputAttributeDescriptionList[] = {
     vk::VertexInputAttributeDescription()
         .setLocation(Vertex::AttributeLocation::Position)
         .setBinding(0)
@@ -35,16 +35,10 @@ Array<vk::VertexInputAttributeDescription, 8> _vertexInputAttributeDescriptionLi
         .setOffset(offsetof(Vertex, Color)),
 
     vk::VertexInputAttributeDescription()
-        .setLocation(Vertex::AttributeLocation::TexCoord1)
+        .setLocation(Vertex::AttributeLocation::TexCoord)
         .setBinding(0)
         .setFormat(vk::Format::eR32G32Sfloat)
-        .setOffset(offsetof(Vertex, TexCoord1)),
-
-    vk::VertexInputAttributeDescription()
-        .setLocation(Vertex::AttributeLocation::TexCoord2)
-        .setBinding(0)
-        .setFormat(vk::Format::eR32G32Sfloat)
-        .setOffset(offsetof(Vertex, TexCoord2)),
+        .setOffset(offsetof(Vertex, TexCoord)),
 
     vk::VertexInputAttributeDescription()
         .setLocation(Vertex::AttributeLocation::Joints)

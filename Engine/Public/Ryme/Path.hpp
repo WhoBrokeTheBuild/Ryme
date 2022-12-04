@@ -19,8 +19,6 @@ public:
 
     static const char ListSeparator = RYME_PATH_LIST_SEPARATOR;
 
-    static void ScriptInit(py::module);
-
     static List<Path> ParsePathList(StringView str);
 
     Path() = default;
@@ -60,16 +58,16 @@ public:
     }
 
     inline bool HasRootName() const {
-        return (GetRootNameLength() > 0);
+        return (getRootNameLength() > 0);
     }
 
     /// The root identifier on a filesystem with multiple roots, such as "C:" or "//server"
     inline Path GetRootName() const {
-        return _path.substr(0, GetRootNameLength());
+        return _path.substr(0, getRootNameLength());
     }
 
     inline bool HasRootDirectory() const {
-        size_t rootNameLen = GetRootNameLength();
+        size_t rootNameLen = getRootNameLength();
         return (_path.length() > rootNameLen && _path[rootNameLen] == Separator);
     }
 
@@ -91,7 +89,7 @@ public:
     inline Path GetParentPath() const {
         size_t pivot = _path.find_last_of(Separator);
         return (
-            pivot <= GetRootNameLength() || pivot == String::npos
+            pivot <= getRootNameLength() || pivot == String::npos
             ? _path
             : _path.substr(0, pivot)
         );
@@ -100,7 +98,7 @@ public:
     inline Path GetFilename() const {
         size_t pivot = _path.find_last_of(Separator);
         return (
-            pivot <= GetRootNameLength() || pivot == String::npos
+            pivot <= getRootNameLength() || pivot == String::npos
             ? _path
             : _path.substr(pivot + 1)
         );
@@ -165,11 +163,15 @@ public:
 
 private:
 
-    void Normalize();
+    void normalize();
 
-    size_t GetRootNameLength() const;
+    size_t getRootNameLength() const;
 
     String _path;
+
+public:
+
+    static void ScriptInit(py::module);
 
 }; // class Path
 

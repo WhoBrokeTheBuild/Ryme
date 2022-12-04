@@ -1,17 +1,17 @@
 #include <Ryme/Math.hpp>
 #include <Ryme/Exception.hpp>
 
+#include <Ryme/ThirdParty/fmt.hpp>
+
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
-
-#include <fmt/format.h>
 
 namespace ryme {
 
 namespace Math {
 
 template <glm::length_t L, typename T, glm::qualifier Q = glm::packed>
-void BindVector(py::module m, const char * name)
+void bindVector(py::module m, const char * name)
 {
     using Vector = glm::vec<L, T, Q>;
 
