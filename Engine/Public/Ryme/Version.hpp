@@ -118,7 +118,7 @@ struct RYME_API Version
     ///
     /// Parse a Version from a string in format major.minor.patch
     ///
-    inline void FromString(const String& string);
+    void FromString(const String& string);
 
     ///
     /// Compare two versions in order of Major, then Minor, then Patch

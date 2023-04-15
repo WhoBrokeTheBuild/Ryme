@@ -1,92 +1,97 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.19 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
 # Allow for custom CMake modules
-LIST(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/CMake)
 
-# Allow PROJECT() to manage versions
-IF(POLICY CMP0048)
-    CMAKE_POLICY(SET CMP0048 NEW)
-ENDIF()
+project(Ryme)
 
-# Process DEPFILEs sent to Ninja
-IF(POLICY CMP0116)
-    CMAKE_POLICY(SET CMP0116 NEW)
-ENDIF()
-
-PROJECT(Ryme)
-
-INCLUDE(ProjectVersion)
+include(ProjectVersion)
 
 ###
 ### Options
 ###
 
-OPTION(
+option(
     RYME_TEST
     "Build Ryme test suite"
     OFF
 )
 
-OPTION(
+option(
     RYME_BENCHMARK
     "Build Ryme with benchmarking"
     OFF
 )
 
-IF(RYME_TEST)
-    ENABLE_TESTING()
-ENDIF()
+if(NOT CMAKE_BUILD_TYPE)
+
+    list(JOIN "${CMAKE_CONFIGURATION_TYPES}" ", " _config_types)
+
+    set(CMAKE_BUILD_TYPE "Release"
+        CACHE STRING
+        "Type of build to configure, can be one of: ${_config_types} [default: Release]"
+        FORCE
+    )
+
+endif()
+
+if(RYME_TEST)
+    enable_testing()
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ###
 ### Third Party Dependencies
 ###
 
-ADD_SUBDIRECTORY(ThirdParty)
+add_subdirectory(ThirdParty)
 
-FIND_PACKAGE(glm CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
-FIND_PACKAGE(fmt CONFIG REQUIRED)
+find_package(fmt 8.0.0 CONFIG REQUIRED)
 
-FIND_PACKAGE(SDL2 2.0.6 CONFIG REQUIRED)
+find_package(SDL2 2.0.6 CONFIG REQUIRED)
 
-FIND_PACKAGE(Python3 COMPONENTS Interpreter Development.Embed REQUIRED)
+find_package(Python3 COMPONENTS Interpreter Development.Embed REQUIRED)
 
-FIND_PACKAGE(pybind11 CONFIG REQUIRED)
+find_package(pybind11 2.8.0 CONFIG REQUIRED)
 
-FIND_PACKAGE(nlohmann_json CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
-FIND_PACKAGE(Vulkan COMPONENTS glslc REQUIRED)
+find_package(Vulkan COMPONENTS glslc REQUIRED)
 
-FIND_PACKAGE(spirv_cross_core CONFIG REQUIRED)
+find_package(spirv_cross_core CONFIG REQUIRED)
 
-SET(GTEST_MSVC_SEARCH "MD")
-FIND_PACKAGE(GTest REQUIRED)
+set(GTEST_MSVC_SEARCH "MD")
+find_package(GTest REQUIRED)
 
 ###
 ### Globals
 ###
 
-INCLUDE(GetRuntimeDir)
+include(GetRuntimeDir)
 
 # Find the location of SDL2.dll
-GET_RUNTIME_DIR(SDL2::SDL2 _SDL2_runtime_dir)
+ryme_get_runtime_dir(SDL2::SDL2 _SDL2_runtime_dir)
 
-LIST(APPEND RYME_RUNTIME_PATH
+list(APPEND RYME_RUNTIME_PATH
     ${Python3_RUNTIME_LIBRARY_DIRS}
     ${_SDL2_runtime_dir}
 )
 
-LIST(APPEND RYME_ASSET_PATH
+list(APPEND RYME_ASSET_PATH
 )
 
 ###
 ### Engine Library
 ###
 
-ADD_SUBDIRECTORY(Engine)
+add_subdirectory(Engine)
 
 ###
 ### Demo Executables
 ###
 
-ADD_SUBDIRECTORY(Demos)
+add_subdirectory(Demos)

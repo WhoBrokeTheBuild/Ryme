@@ -1,11 +1,11 @@
 
-SET(_target RymeEngine)
+set(_target RymeEngine)
 
 ###
 ### Source Files
 ###
 
-FILE(
+file(
     GLOB_RECURSE
     _source_list
     "Public/*.h"
@@ -16,34 +16,34 @@ FILE(
     "Private/*.cpp"
 )
 
-FILE(
+file(
     GLOB_RECURSE
     _source_input_list
     "Public/*.in"
     "Private/*.in"
 )
 
-INCLUDE(ConfigureFileList)
+include(ConfigureFileList)
 
-CONFIGURE_FILE_LIST("${_source_input_list}" _source_output_list)
+ryme_configure_file_list("${_source_input_list}" _source_output_list)
 
 ###
 ### Asset Processing
 ###
 
-FILE(GLOB_RECURSE
+file(GLOB_RECURSE
     _asset_list
     "Assets/*"
 )
 
 # Stop VS from trying to "build" our .obj model files
-SET_SOURCE_FILES_PROPERTIES(
+set_source_files_properties(
     ${_asset_list} 
     PROPERTIES
         HEADER_FILE_ONLY TRUE
 )
 
-LIST(PREPEND RYME_ASSET_PATH
+list(PREPEND RYME_ASSET_PATH
     ${CMAKE_CURRENT_SOURCE_DIR}/Assets
     ${CMAKE_CURRENT_BINARY_DIR}/Assets
 )
@@ -52,21 +52,21 @@ LIST(PREPEND RYME_ASSET_PATH
 ### Shader Processing
 ###
 
-FILE(
+file(
     GLOB_RECURSE
     _shader_input_list
     "Assets/*.glsl"
 )
 
-INCLUDE(CompileShaderList)
+include(CompileShaderList)
 
-COMPILE_SHADER_LIST("${RYME_ASSET_PATH}" "${_shader_input_list}" _shader_output_list)
+ryme_compile_shader_list("${RYME_ASSET_PATH}" "${_shader_input_list}" _shader_output_list)
 
 ###
 ### Target Configuration
 ###
 
-ADD_LIBRARY(
+add_library(
     ${_target} SHARED
     ${_source_list}
     ${_source_output_list}
@@ -74,20 +74,20 @@ ADD_LIBRARY(
     ${_shader_output_list}
 )
 
-TARGET_LINK_LIBRARIES(
+target_link_libraries(
     ${_target}
     PUBLIC
         glm::glm
         fmt::fmt
         SDL2::SDL2
         Python3::Python
-        pybind11::headers
+        pybind11::embed
         nlohmann_json::nlohmann_json
         Vulkan::Vulkan
         spirv-cross-core
 )
 
-TARGET_INCLUDE_DIRECTORIES(
+target_include_directories(
     ${_target}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/Public
@@ -97,7 +97,7 @@ TARGET_INCLUDE_DIRECTORIES(
         ${CMAKE_CURRENT_BINARY_DIR}/Private
 )
 
-TARGET_COMPILE_DEFINITIONS(
+target_compile_definitions(
     ${_target}
     PUBLIC
         # Disable VS "not secure" warnings
@@ -109,16 +109,13 @@ TARGET_COMPILE_DEFINITIONS(
         VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
 )
 
-SET_TARGET_PROPERTIES(
+set_target_properties(
     ${_target}
     PROPERTIES
-        CXX_STANDARD 20
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
         DEFINE_SYMBOL "RYME_EXPORT"
 )
 
-TARGET_COMPILE_OPTIONS(
+target_compile_options(
     ${_target}
     PUBLIC
         # Recommended by pybind11
@@ -136,8 +133,8 @@ TARGET_COMPILE_OPTIONS(
         $<$<CXX_COMPILER_ID:MSVC>:  /wd4068>
 )
 
-LIST(APPEND RYME_RUNTIME_PATH ${CMAKE_CURRENT_BINARY_DIR})
-SET(RYME_RUNTIME_PATH ${RYME_RUNTIME_PATH} PARENT_SCOPE)
+list(APPEND RYME_RUNTIME_PATH ${CMAKE_CURRENT_BINARY_DIR})
+set(RYME_RUNTIME_PATH ${RYME_RUNTIME_PATH} PARENT_SCOPE)
 
-LIST(APPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
-SET(RYME_ASSET_PATH ${RYME_ASSET_PATH} PARENT_SCOPE)
+list(APPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
+set(RYME_ASSET_PATH ${RYME_ASSET_PATH} PARENT_SCOPE)

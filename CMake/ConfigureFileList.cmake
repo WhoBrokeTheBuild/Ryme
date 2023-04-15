@@ -10,11 +10,11 @@
 #   ${CMAKE_BINARY_SOURCE_DIR}/Source/config.h
 #
 
-MACRO(CONFIGURE_FILE_LIST _input_list _output_list)
-    FOREACH(_input ${_input_list})
+macro(ryme_configure_file_list _input_list _output_list)
+    foreach(_input ${_input_list})
 
         # Replace leading source directory in path with binary directory
-        STRING(REPLACE 
+        string(REPLACE 
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_BINARY_DIR}
             _output
@@ -22,11 +22,11 @@ MACRO(CONFIGURE_FILE_LIST _input_list _output_list)
         )
 
         # Remove the ".in"
-        STRING(REGEX MATCH "^(.*)\\.[^.]*$" _output ${_output})
-        SET(_output ${CMAKE_MATCH_1})
+        string(REGEX MATCH "^(.*)\\.[^.]*$" _output ${_output})
+        set(_output ${CMAKE_MATCH_1})
 
-        CONFIGURE_FILE(${_input} ${_output})
+        configure_file(${_input} ${_output})
 
-        LIST(APPEND ${_output_list} ${_output})
-    ENDFOREACH()
-ENDMACRO()
+        list(APPEND ${_output_list} ${_output})
+    endforeach()
+endmacro()

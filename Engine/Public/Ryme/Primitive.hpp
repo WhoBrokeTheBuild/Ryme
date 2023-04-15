@@ -9,7 +9,7 @@
 
 namespace ryme {
 
-struct RYME_API Primitive
+class RYME_API Primitive
 {
 public:
 

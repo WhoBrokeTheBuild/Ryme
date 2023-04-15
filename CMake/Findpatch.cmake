@@ -10,7 +10,7 @@
 #   patch_COMMAND
 #
 
-FIND_PROGRAM(
+find_program(
     patch_COMMAND
     NAMES patch
     PATHS
@@ -19,19 +19,19 @@ FIND_PROGRAM(
         bin
 )
 
-IF(NOT patch_COMMAND AND WIN32)
-    FILE(DOWNLOAD
+if(NOT patch_COMMAND AND WIN32)
+    file(DOWNLOAD
         "http://prdownloads.sourceforge.net/gnuwin32/patch-2.5.9-7-bin.zip"
         ${CMAKE_BINARY_DIR}/patch.zip
         EXPECTED_MD5 b9c8b31d62f4b2e4f1887bbb63e8a905
     )
 
-    EXECUTE_PROCESS(
+    execute_process(
         COMMAND ${CMAKE_COMMAND} -E tar xf ${CMAKE_BINARY_DIR}/patch.zip
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 
-    FIND_PROGRAM(
+    find_program(
         patch_COMMAND
         NAMES patch
         PATHS
@@ -39,10 +39,10 @@ IF(NOT patch_COMMAND AND WIN32)
         PATH_SUFFIXES
             bin
     )
-ENDIF()
+endif()
 
-INCLUDE(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(
     patch
     REQUIRED_VARS 
         patch_COMMAND

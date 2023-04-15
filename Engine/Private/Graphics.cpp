@@ -11,7 +11,7 @@
 RYME_DISABLE_WARNINGS()
 
     #define VMA_IMPLEMENTATION
-    #include <vma/vk_mem_alloc.h>
+    #include <vk_mem_alloc.h>
 
 RYME_ENABLE_WARNINGS()
 

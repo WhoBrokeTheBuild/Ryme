@@ -1,11 +1,11 @@
 
-MACRO(DEFINE_DEMO _target)
+macro(ryme_define_demo _target)
 
     ###
     ### Source Files
     ###
 
-    FILE(
+    file(
         GLOB_RECURSE
         _source
         "Private/*.h"
@@ -18,19 +18,19 @@ MACRO(DEFINE_DEMO _target)
     ### Asset Processing
     ###
 
-    FILE(GLOB_RECURSE
+    file(GLOB_RECURSE
         _asset_list
         "Assets/*"
     )
 
     # Stop VS from trying to "build" our .obj model files
-    SET_SOURCE_FILES_PROPERTIES(
+    set_source_files_properties(
         ${_asset_list} 
         PROPERTIES
             HEADER_FILE_ONLY TRUE
     )
 
-    LIST(PREPEND RYME_ASSET_PATH
+    list(PREPEND RYME_ASSET_PATH
         ${CMAKE_CURRENT_SOURCE_DIR}/Assets
         ${CMAKE_CURRENT_BINARY_DIR}/Assets
     )
@@ -39,63 +39,55 @@ MACRO(DEFINE_DEMO _target)
     ### Shader Processing
     ###
 
-    FILE(
+    file(
         GLOB_RECURSE
         _shader_input_list
         "Assets/*.glsl"
     )
 
-    INCLUDE(CompileShaderList)
+    include(CompileShaderList)
 
-    COMPILE_SHADER_LIST("${RYME_ASSET_PATH}" "${_shader_input_list}" _shader_output_list)
+    ryme_compile_shader_list("${RYME_ASSET_PATH}" "${_shader_input_list}" _shader_output_list)
 
     ###
     ### Target Configuration
     ###
 
-    ADD_EXECUTABLE(
+    add_executable(
         ${_target}
         ${_source}
         ${_asset_list}
         ${_shader_output_list}
     )
 
-    TARGET_LINK_LIBRARIES(
+    target_link_libraries(
         ${_target}
         PRIVATE
             RymeEngine
             SDL2::SDL2main
     )
 
-    TARGET_INCLUDE_DIRECTORIES(
+    target_include_directories(
         ${_target}
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/Private
     )
 
-    TARGET_COMPILE_DEFINITIONS(
+    target_compile_definitions(
         ${_target}
         PRIVATE
             DEMO_NAME="${_target}"
     )
 
-    SET_TARGET_PROPERTIES(
-        ${_target}
-        PROPERTIES
-            CXX_STANDARD 20
-            CXX_STANDARD_REQUIRED ON
-            CXX_EXTENSIONS OFF
-    )
+    if(WIN32)
+        set(_ext ".exe")
+    endif()
 
-    IF(WIN32)
-        SET(_ext ".exe")
-    ENDIF()
+    file(RELATIVE_PATH _executable ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${_target}${_ext})
 
-    FILE(RELATIVE_PATH _executable ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${_target}${_ext})
+    list(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
 
-    LIST(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
-
-    EXECUTE_PROCESS(
+    execute_process(
         COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_SOURCE_DIR}/Scripts/generate-launch-targets.py
             --name "${_target}"
@@ -107,14 +99,14 @@ MACRO(DEFINE_DEMO _target)
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 
-ENDMACRO()
+endmacro()
 
-LIST(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
+list(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
 
-FILE(GLOB _demo_list ${CMAKE_CURRENT_SOURCE_DIR}/*)
+file(GLOB _demo_list ${CMAKE_CURRENT_SOURCE_DIR}/*)
 
-FOREACH(_demo ${_demo_list})
-    IF(EXISTS "${_demo}/CMakeLists.txt")
-        ADD_SUBDIRECTORY(${_demo})
-    ENDIF()
-ENDFOREACH()
+foreach(_demo ${_demo_list})
+    if(EXISTS "${_demo}/CMakeLists.txt")
+        add_subdirectory(${_demo})
+    endif()
+endforeach()
