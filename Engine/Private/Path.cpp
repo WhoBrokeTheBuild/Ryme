@@ -21,6 +21,7 @@
 
 namespace ryme {
 
+RYME_API
 List<Path> Path::ParsePathList(StringView str)
 {
     List<Path> pathList;
@@ -35,31 +36,36 @@ List<Path> Path::ParsePathList(StringView str)
     return pathList;
 }
 
+RYME_API
 Path::Path(const Path& rhs)
     : _path(rhs._path)
 { }
 
+RYME_API
 Path::Path(const String& str)
     : _path(str)
 {
     normalize();
 }
 
+RYME_API
 Path::Path(const StringView& str)
     : _path(str)
 {
     normalize();
 }
 
+RYME_API
 Path::Path(const char * cstr)
     : _path(cstr)
 {
     normalize();
 }
 
+RYME_API
 Path& Path::Append(const Path& rhs)
 {
-    if (IsAbsolute() && rhs.IsAbsolute()) {
+    if (IsAbsolute() and rhs.IsAbsolute()) {
         // Unable to append absolute paths
         _path = rhs._path;
         return *this;
@@ -73,12 +79,14 @@ Path& Path::Append(const Path& rhs)
     return *this;
 }
 
+RYME_API
 Path& Path::Concatenate(const Path& rhs)
 {
     _path += rhs._path;
     return *this;
 }
 
+RYME_API
 bool Path::Equals(const Path& rhs) const
 {
     #if defined(RYME_PLATFORM_WINDOWS)
@@ -95,13 +103,14 @@ bool Path::Equals(const Path& rhs) const
     #endif
 }
 
+RYME_API
 void Path::normalize()
 {
     if (_path.empty()) {
         return;
     }
 
-    if (!UTF::IsValid(_path)) {
+    if (not UTF::IsValid(_path)) {
         _path.clear();
         throw Exception("Path is not a valid Unicode string");
     }
@@ -126,21 +135,22 @@ void Path::normalize()
         _path.begin(), 
         _path.end(),
         [](char lhs, char rhs) {
-            return (lhs == rhs && lhs == Separator);
+            return (lhs == rhs and lhs == Separator);
         }
     );
 
     _path.erase(newEnd, _path.end());
 }
 
+RYME_API
 size_t Path::getRootNameLength() const
 {
     #if defined(RYME_PLATFORM_WINDOWS)
 
         // Check for windows drive letter, such as "C:"
-        if (_path.length() >= 2 && _path[1] == ':') {
+        if (_path.length() >= 2 and _path[1] == ':') {
             char first = std::toupper(_path[0]);
-            if (first >= 'A' && first <= 'Z') {
+            if (first >= 'A' and first <= 'Z') {
                 return 2;
             }
         }
@@ -153,6 +163,7 @@ size_t Path::getRootNameLength() const
     return 0;
 }
 
+RYME_API
 Path GetCurrentPath()
 {
 #if defined(RYME_PLATFORM_WINDOWS)
@@ -174,6 +185,7 @@ Path GetCurrentPath()
     return Path();
 }
 
+RYME_API
 void Path::ScriptInit(py::module m)
 {
     py::class_<Path>(m, "Path")
@@ -236,6 +248,7 @@ void Path::ScriptInit(py::module m)
     m.def("GetAssetPathList", GetAssetPathList);
 }
 
+RYME_API
 List<Path> GetAssetPathList()
 {
     static List<Path> assetPathList;

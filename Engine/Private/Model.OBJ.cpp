@@ -1,7 +1,6 @@
-#include <Ryme/Mesh.hpp>
+#include <Ryme/Model.hpp>
 #include <Ryme/Exception.hpp>
 #include <Ryme/Log.hpp>
-#include <Ryme/Primitive.hpp>
 #include <Ryme/String.hpp>
 #include <Ryme/Vertex.hpp>
 #include <Ryme/UTF.hpp>
@@ -10,7 +9,8 @@
 
 namespace ryme {
 
-bool Mesh::LoadOBJ(const Path& path, bool search)
+RYME_API
+bool Model::LoadOBJ(const Path& path, bool search)
 {
     // https://github.com/blender/blender-addons/blob/master/io_scene_obj/export_obj.py
 
@@ -70,7 +70,7 @@ bool Mesh::LoadOBJ(const Path& path, bool search)
         objFile = fopen(fullPath.ToCString(), "rt");
     }
 
-    if (!objFile) {
+    if (not objFile) {
         return false;
     }
 
@@ -212,11 +212,11 @@ bool Mesh::LoadOBJ(const Path& path, bool search)
                     positionIndex[i] += positionList.size();
                 }
                 
-                if (hasNormal && normalIndex[i] < 0) {
+                if (hasNormal and normalIndex[i] < 0) {
                     normalIndex[i] += normalList.size();
                 }
                 
-                if (hasTexCoord && texCoordIndex[i] < 0) {
+                if (hasTexCoord and texCoordIndex[i] < 0) {
                     texCoordIndex[i] += texCoordList.size();
                 }
 
@@ -256,7 +256,7 @@ bool Mesh::LoadOBJ(const Path& path, bool search)
             }
 
             FILE * mtlFile = fopen(mtlPath.ToCString(), "rt");
-            if (!mtlFile) {
+            if (not mtlFile) {
                 throw Exception("Failed to load MTL file '{}'", mtlPath);
             }
 
@@ -399,7 +399,7 @@ bool Mesh::LoadOBJ(const Path& path, bool search)
 
                     materialList.back().RoughnessMap = texturePath;
                 }
-                else if (key == "refl" || key == "map_refl") {
+                else if (key == "refl" or key == "map_refl") {
                     Path texturePath = value;
                     if (texturePath.IsRelative()) {
                         texturePath = mtlPath.GetParentPath() / texturePath;    
@@ -407,7 +407,7 @@ bool Mesh::LoadOBJ(const Path& path, bool search)
 
                     materialList.back().MetallicMap = texturePath;
                 }
-                else if (key == "map_Bump" || key == "map_bump") {
+                else if (key == "map_Bump" or key == "map_bump") {
                     Path texturePath = value;
                     if (texturePath.IsRelative()) {
                         texturePath = mtlPath.GetParentPath() / texturePath;    
@@ -426,14 +426,16 @@ bool Mesh::LoadOBJ(const Path& path, bool search)
         }
     }
 
-    List<Primitive> primitiveList;
-
     for (auto& object : objectList) {
-        primitiveList.emplace_back(Primitive{
-            .VertexList = std::move(object.VertexList),
-        });
+        Log(RYME_ANCHOR, "Loaded MeshData with {} vertices", object.VertexList.size());
 
-        primitiveList.back().CalculateTangents();
+        MeshData data = MeshData{
+            .VertexList = std::move(object.VertexList),
+        };
+
+        data.CalculateTangents();
+
+        _meshList.emplace_back(std::move(data));
     }
 
     fclose(objFile);

@@ -37,13 +37,13 @@ private:
 
     vk::SamplerCreateInfo _samplerCreateInfo;
 
-    vk::Image _image;
+    vk::Image _image = nullptr;
 
-    VmaAllocation _allocation;
+    VmaAllocation _allocation = nullptr;
 
-    vk::ImageView _imageView;
+    vk::ImageView _imageView = nullptr;
 
-    vk::Sampler _sampler;
+    vk::Sampler _sampler = nullptr;
 
 }; // class Texture
 

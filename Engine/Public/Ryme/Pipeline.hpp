@@ -27,7 +27,7 @@ public:
         return true;
     }
 
-    inline vk::Pipeline& GetPipeline() {
+    inline vk::Pipeline GetVkPipeline() {
         return _pipeline;
     }
     

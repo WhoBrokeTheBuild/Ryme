@@ -4,11 +4,13 @@
 
 namespace ryme {
 
+RYME_API
 Buffer::~Buffer()
 {
     Destroy();
 }
 
+RYME_API
 void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlagBits bufferUsage, VmaMemoryUsage memoryUsage)
 {
     _size = size;
@@ -16,7 +18,7 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlagBits
     _memoryUsage = memoryUsage;
 
     if (_memoryUsage == VMA_MEMORY_USAGE_GPU_ONLY) {
-        if (!data) {
+        if (not data) {
             throw Exception("Attempting to create a GPU only buffer with no data");
         }
 
@@ -92,12 +94,15 @@ void Buffer::Create(vk::DeviceSize size, uint8_t * data, vk::BufferUsageFlagBits
     }
 }
 
+RYME_API
 void Buffer::Destroy()
 {
     _size = 0;
 
-    vmaUnmapMemory(Graphics::Allocator, _allocation);
-    _mappedBufferMemory = nullptr;
+    if (_mappedBufferMemory) {
+        vmaUnmapMemory(Graphics::Allocator, _allocation);
+        _mappedBufferMemory = nullptr;
+    }
 
     Graphics::Device.destroyBuffer(_buffer);
     _buffer = nullptr;
@@ -106,6 +111,7 @@ void Buffer::Destroy()
     _allocation = nullptr;
 }
 
+RYME_API
 void Buffer::ReadFrom(size_t offset, size_t length, uint8_t * data)
 {
     assert(_memoryUsage == VMA_MEMORY_USAGE_GPU_TO_CPU);
@@ -114,10 +120,11 @@ void Buffer::ReadFrom(size_t offset, size_t length, uint8_t * data)
     memcpy(data, _mappedBufferMemory + offset, length);
 }
 
+RYME_API
 void Buffer::WriteTo(size_t offset, size_t length, uint8_t * data)
 {
     assert(_memoryUsage == VMA_MEMORY_USAGE_CPU_ONLY
-        || _memoryUsage == VMA_MEMORY_USAGE_CPU_TO_GPU);
+        or _memoryUsage == VMA_MEMORY_USAGE_CPU_TO_GPU);
     assert(_mappedBufferMemory);
 
     memcpy(_mappedBufferMemory + offset, data, length);

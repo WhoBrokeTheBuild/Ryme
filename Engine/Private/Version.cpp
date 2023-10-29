@@ -5,6 +5,7 @@
 
 namespace ryme {
 
+RYME_API
 void Version::FromString(const String& string)
 {
     std::smatch match;
@@ -18,6 +19,7 @@ void Version::FromString(const String& string)
     }
 }
     
+RYME_API
 int Version::Compare(const Version& a, const Version& b)
 {
     auto cmp = [](int a, int b)
@@ -41,6 +43,7 @@ int Version::Compare(const Version& a, const Version& b)
     return result;
 }
 
+RYME_API
 void Version::ScriptInit(py::module m)
 {
     py::class_<Version>(m, "Version")

@@ -2,9 +2,9 @@
 #define RYME_SHADER_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Containers.hpp>
-#include <Ryme/Path.hpp>
 #include <Ryme/Asset.hpp>
+#include <Ryme/List.hpp>
+#include <Ryme/Path.hpp>
 
 #include <Ryme/ThirdParty/vulkan.hpp>
 

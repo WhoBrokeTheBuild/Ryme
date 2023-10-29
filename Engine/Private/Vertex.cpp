@@ -53,11 +53,13 @@ vk::VertexInputAttributeDescription _vertexInputAttributeDescriptionList[] = {
         .setOffset(offsetof(Vertex, Weights)),
 };
 
+RYME_API
 Span<vk::VertexInputBindingDescription> GetVertexInputBindingDescriptionList()
 {
     return _vertexInputBindingDescriptionList;
 }
 
+RYME_API
 Span<vk::VertexInputAttributeDescription> GetVertexInputAttributeDescriptionList()
 {
     return _vertexInputAttributeDescriptionList;

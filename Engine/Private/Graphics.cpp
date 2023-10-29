@@ -1,6 +1,8 @@
 #include <Ryme/Graphics.hpp>
-#include <Ryme/Ryme.hpp>
 #include <Ryme/Buffer.hpp>
+#include <Ryme/Color.hpp>
+#include <Ryme/Ryme.hpp>
+#include <Ryme/Set.hpp>
 #include <Ryme/Shader.hpp>
 
 #include <Ryme/ShaderGlobals.hpp>
@@ -123,6 +125,15 @@ List<vk::Semaphore> _renderingFinishedSemaphoreList;
 
 List<vk::Fence> _inFlightFenceList;
 
+
+std::function<void(vk::CommandBuffer)> _renderFunc;
+
+void SetRenderFunc(std::function<void(vk::CommandBuffer)> func)
+{
+    _renderFunc = func;
+}
+
+
 inline bool hasInstanceLayer(StringView name)
 {
     for (const auto& layer : _availableLayerList) {
@@ -213,7 +224,7 @@ void initWindow()
         SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE
     );
 
-    if (!_window) {
+    if (not _window) {
         throw Exception("SDL_CreateWindow failed, {}", SDL_GetError());
     }
 
@@ -260,7 +271,7 @@ void initInstance()
         requiredInstanceExtensionList.data()
     );
 
-    if (!result) {
+    if (not result) {
         throw Exception("SDL_Vulkan_GetInstanceExtensions failed, {}", SDL_GetError());
     }
 
@@ -353,7 +364,7 @@ void initSurface()
         reinterpret_cast<VkSurfaceKHR *>(&_surface)
     );
     
-    if (!result) {
+    if (not result) {
         throw Exception("SDL_Vulkan_CreateSurface() failed, {}", SDL_GetError());
     }
 }
@@ -375,7 +386,7 @@ void initDevice()
         Log(RYME_ANCHOR, "\t{}", _physicalDeviceProperties.deviceName);
         
         bool isSuitable = (
-            _physicalDeviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu &&
+            _physicalDeviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu and
             _physicalDeviceFeatures.geometryShader
         );
 
@@ -385,7 +396,7 @@ void initDevice()
         }
     }
 
-    if (!_physicalDevice) {
+    if (not _physicalDevice) {
         throw Exception("No suitable physical device found");
     }
 
@@ -412,18 +423,18 @@ void initDevice()
         bool hasGraphics = (properties.queueFlags & vk::QueueFlagBits::eGraphics ? true : false);
 
         // Pick the first available Queue with Graphics support
-        if (_graphicsQueueFamilyIndex == UINT32_MAX && hasGraphics) {
+        if (_graphicsQueueFamilyIndex == UINT32_MAX and hasGraphics) {
             _graphicsQueueFamilyIndex = index;
         }
         
         // Pick the first available Queue with Present support
-        if (_presentQueueFamilyIndex == UINT32_MAX && hasPresent) {
+        if (_presentQueueFamilyIndex == UINT32_MAX and hasPresent) {
             _presentQueueFamilyIndex = index;
         }
 
         // If our Graphics and Present Queues aren't the same, try to find one that supports both
         if (_graphicsQueueFamilyIndex != _presentQueueFamilyIndex
-            && hasPresent && hasGraphics) {
+            and hasPresent and hasGraphics) {
             _graphicsQueueFamilyIndex = index;
             _presentQueueFamilyIndex = index;
         }
@@ -729,7 +740,7 @@ void initFramebufferList()
 
 void initCommandBufferList()
 {
-    if (!_commandBufferList.empty()) {
+    if (not _commandBufferList.empty()) {
         Device.freeCommandBuffers(_commandPool, _commandBufferList);
     }
 
@@ -818,7 +829,9 @@ void fillCommandBuffers()
 
         commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 
-            // commandBuffer.
+        if (_renderFunc) {
+            _renderFunc(commandBuffer);
+        }
 
         commandBuffer.endRenderPass();
 
@@ -845,13 +858,13 @@ void initSwapchain()
     Log(RYME_ANCHOR, "Available Vulkan Surface Formats:");
     for (const auto& format : formatList) {
         bool isPreferredFormat = (
-            format.format == vk::Format::eR8G8B8A8Srgb ||
+            format.format == vk::Format::eR8G8B8A8Srgb or
             format.format == vk::Format::eB8G8R8A8Srgb
         );
 
         bool isSRGB = (format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear);
         
-        if (isPreferredFormat && isSRGB) {
+        if (isPreferredFormat and isSRGB) {
             imageFormat = format;
         }
 

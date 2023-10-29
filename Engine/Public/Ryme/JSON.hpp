@@ -2,11 +2,13 @@
 #define RYME_JSON_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Containers.hpp>
-#include <Ryme/String.hpp>
 #include <Ryme/Math.hpp>
 
 #include <Ryme/ThirdParty/nlohmann_json.hpp>
+
+#include <map>
+#include <vector>
+#include <string>
 
 namespace ryme {
 
@@ -22,7 +24,7 @@ typedef nlohmann::basic_json<
 
 inline void from_json(const JSON& array, Vec2& value)
 {
-    if (array.is_array() && array.size() == 2) {
+    if (array.is_array() and array.size() == 2) {
         value = Vec2(
             array[0].get<float>(),
             array[1].get<float>()
@@ -32,7 +34,7 @@ inline void from_json(const JSON& array, Vec2& value)
 
 inline void from_json(const JSON& array, Vec3& value)
 {
-    if (array.is_array() && array.size() == 3) {
+    if (array.is_array() and array.size() == 3) {
         value = Vec3(
             array[0].get<float>(),
             array[1].get<float>(),
@@ -43,7 +45,7 @@ inline void from_json(const JSON& array, Vec3& value)
 
 inline void from_json(const JSON& array, Vec4& value)
 {
-    if (array.is_array() && array.size() == 4) {
+    if (array.is_array() and array.size() == 4) {
         value = Vec4(
             array[0].get<float>(),
             array[1].get<float>(),
@@ -55,7 +57,7 @@ inline void from_json(const JSON& array, Vec4& value)
 
 inline void from_json(const JSON& array, Quat& value)
 {
-    if (array.is_array() && array.size() == 4) {
+    if (array.is_array() and array.size() == 4) {
         value = Quat(
             array[3].get<float>(),
             array[0].get<float>(),

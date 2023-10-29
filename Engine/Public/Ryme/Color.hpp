@@ -2,7 +2,7 @@
 #define RYME_COLOR_SPACE_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Containers.hpp>
+#include <Ryme/Array.hpp>
 #include <Ryme/Math.hpp>
 #include <Ryme/String.hpp>
 

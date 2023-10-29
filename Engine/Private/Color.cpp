@@ -31,7 +31,7 @@ Vec4 ToLinear(const Vec4& color)
 }
 
 RYME_API
-void Color::ScriptInit(py::module m)
+void ScriptInit(py::module m)
 {
     m.def_submodule("Color")
         .def("ToSRGB", &ToSRGB)

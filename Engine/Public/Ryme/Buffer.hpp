@@ -13,6 +13,8 @@ class RYME_API Buffer : public NonCopyable
 public:
 
     Buffer() = default;
+    
+    Buffer(Buffer&&) = default;
 
     virtual ~Buffer();
 
@@ -40,6 +42,10 @@ public:
 
     virtual void WriteTo(size_t offset, size_t length, uint8_t * data);
 
+    inline vk::Buffer GetVkBuffer() {
+        return _buffer;
+    }
+
 private:
 
     vk::DeviceSize _size;
@@ -48,9 +54,9 @@ private:
 
     VmaMemoryUsage _memoryUsage;
 
-    vk::Buffer _buffer;
+    vk::Buffer _buffer = nullptr;
     
-    VmaAllocation _allocation;
+    VmaAllocation _allocation = nullptr;
 
     uint8_t * _mappedBufferMemory = nullptr;
 

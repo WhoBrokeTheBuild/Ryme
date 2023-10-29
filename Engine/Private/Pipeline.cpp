@@ -5,6 +5,7 @@
 
 namespace ryme {
 
+RYME_API
 Pipeline::Pipeline(Shader * shader)
     : _shader(shader)
 {
@@ -58,11 +59,13 @@ Pipeline::Pipeline(Shader * shader)
         .setStencilTestEnable(false);
 }
 
+RYME_API
 Pipeline::~Pipeline()
 {
     Free();
 }
 
+RYME_API
 void Pipeline::Create()
 {
     assert(_shader); // TODO: Improve
@@ -117,11 +120,13 @@ void Pipeline::Create()
     );
 }
 
+RYME_API
 void Pipeline::Free()
 {
     Graphics::Device.destroyPipeline(_pipeline);
 }
 
+RYME_API
 bool Pipeline::Reload()
 {
     return true;

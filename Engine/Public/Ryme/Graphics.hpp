@@ -2,10 +2,10 @@
 #define RYME_GRAPHICS_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Color.hpp>
 #include <Ryme/InitInfo.hpp>
 #include <Ryme/Math.hpp>
 #include <Ryme/String.hpp>
+#include <Ryme/Tuple.hpp>
 
 #include <Ryme/ThirdParty/python.hpp>
 #include <Ryme/ThirdParty/SDL.hpp>
@@ -72,6 +72,9 @@ void CopyBufferToImage(vk::Buffer src, vk::Image dst, vk::BufferImageCopy region
 
 RYME_API
 void ScriptInit(py::module);
+
+RYME_API
+void SetRenderFunc(std::function<void(vk::CommandBuffer)> func);
 
 } // namespace Graphics
 

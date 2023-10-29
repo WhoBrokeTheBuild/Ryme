@@ -1,5 +1,5 @@
 #include <Ryme/Log.hpp>
-#include <Ryme/Containers.hpp>
+#include <Ryme/Array.hpp>
 
 namespace ryme {
 
@@ -9,6 +9,7 @@ void LogMessage(StringView tag, StringView message)
     fmt::print("({}) {}\n", tag, message);
 }
 
+RYME_API
 String FormatBytesHumanReadable(uint64_t bytes)
 {
     static const Array<const char *, 7> suffixList = { "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };

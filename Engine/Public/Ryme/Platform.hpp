@@ -36,12 +36,12 @@
     // Apple Clang Compiler
     #define RYME_COMPILER_CLANG __clang__
 
-#elif defined(__GNUC__) || defined(__GNUG__)
+#elif defined(__GNUC__) or defined(__GNUG__)
     
     // GNU Compiler Collection
     #define RYME_COMPILER_GCC __GNUC__
 
-#elif defined(__ICC) || defined(__INTEL_COMPILER)
+#elif defined(__ICC) or defined(__INTEL_COMPILER)
 
     // Intel Compiler
     #define RYME_COMPILER_ICC __INTEL_COMPILER
@@ -57,7 +57,7 @@
 
     #define RYME_FUNCTION_NAME __FUNCSIG__
 
-#elif defined(RYME_COMPILER_GCC) || defined(RYME_COMPILER_CLANG)
+#elif defined(RYME_COMPILER_GCC) or defined(RYME_COMPILER_CLANG)
 
     #define RYME_FUNCTION_NAME __PRETTY_FUNCTION__
 

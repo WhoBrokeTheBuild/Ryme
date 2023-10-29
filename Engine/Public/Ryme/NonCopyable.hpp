@@ -1,5 +1,5 @@
-#ifndef RYME_NON_COPYABLE_HPP
-#define RYME_NON_COPYABLE_HPP
+#ifndef RYME_UTIL_NON_COPYABLE_HPP
+#define RYME_UTIL_NON_COPYABLE_HPP
 
 #include <Ryme/Config.hpp>
 
@@ -10,6 +10,8 @@ class NonCopyable
 protected:
 
     NonCopyable() = default;
+
+    NonCopyable(NonCopyable&&) = default;
 
     virtual ~NonCopyable() = default;
 
@@ -25,4 +27,4 @@ protected:
 
 } // namespace ryme
 
-#endif // RYME_NON_COPYABLE_HPP
+#endif // RYME_UTIL_NON_COPYABLE_HPP

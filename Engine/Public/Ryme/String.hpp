@@ -2,7 +2,7 @@
 #define RYME_STRING_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Containers.hpp>
+#include <Ryme/List.hpp>
 
 #include <string>
 #include <string_view>
@@ -33,7 +33,7 @@ inline constexpr size_t StringLength(const char * str)
 
 inline StringView StripLeft(StringView str)
 {
-    while (!str.empty() && std::isspace(str.front())) {
+    while (not str.empty() and std::isspace(str.front())) {
         str.remove_prefix(1);
     }
     return str;
@@ -41,7 +41,7 @@ inline StringView StripLeft(StringView str)
 
 inline StringView StripRight(StringView str)
 {
-    while (!str.empty() && std::isspace(str.back())) {
+    while (not str.empty() and std::isspace(str.back())) {
         str.remove_suffix(1);
     }
     return str;

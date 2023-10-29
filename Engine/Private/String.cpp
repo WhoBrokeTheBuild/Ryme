@@ -2,6 +2,7 @@
 
 namespace ryme {
 
+RYME_API
 List<String> Split(StringView str, String delim)
 {
     List<String> strList;
@@ -16,6 +17,7 @@ List<String> Split(StringView str, String delim)
     return strList;
 }
 
+RYME_API
 String Join(List<String> strList, String delim)
 {
     size_t totalSize = 0;

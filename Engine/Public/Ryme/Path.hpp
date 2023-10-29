@@ -2,8 +2,8 @@
 #define RYME_PATH_HPP
 
 #include <Ryme/Config.hpp>
+#include <Ryme/List.hpp>
 #include <Ryme/String.hpp>
-#include <Ryme/Containers.hpp>
 #include <Ryme/UTF.hpp>
 
 #include <Ryme/ThirdParty/fmt.hpp>
@@ -54,7 +54,7 @@ public:
     }
 
     inline bool IsRelative() const {
-        return !HasRootDirectory();
+        return not HasRootDirectory();
     }
 
     inline bool HasRootName() const {
@@ -68,7 +68,7 @@ public:
 
     inline bool HasRootDirectory() const {
         size_t rootNameLen = getRootNameLength();
-        return (_path.length() > rootNameLen && _path[rootNameLen] == Separator);
+        return (_path.length() > rootNameLen and _path[rootNameLen] == Separator);
     }
 
     inline Path GetRootDirectory() const {
@@ -79,7 +79,7 @@ public:
     }
 
     inline bool HasRootPath() const {
-        return (HasRootName() || HasRootDirectory());
+        return (HasRootName() or HasRootDirectory());
     }
 
     inline Path GetRootPath() const {
@@ -89,7 +89,7 @@ public:
     inline Path GetParentPath() const {
         size_t pivot = _path.find_last_of(Separator);
         return (
-            pivot <= getRootNameLength() || pivot == String::npos
+            pivot <= getRootNameLength() or pivot == String::npos
             ? _path
             : _path.substr(0, pivot)
         );
@@ -98,7 +98,7 @@ public:
     inline Path GetFilename() const {
         size_t pivot = _path.find_last_of(Separator);
         return (
-            pivot <= getRootNameLength() || pivot == String::npos
+            pivot <= getRootNameLength() or pivot == String::npos
             ? _path
             : _path.substr(pivot + 1)
         );
@@ -108,7 +108,7 @@ public:
         String filename = GetFilename().ToString();
         size_t pivot = filename.find_last_of('.');
         return (
-            pivot == 0 || pivot == String::npos
+            pivot == 0 or pivot == String::npos
             ? filename
             : filename.substr(0, pivot)
         );
@@ -118,7 +118,7 @@ public:
         String filename = GetFilename().ToString();
         size_t pivot = filename.find_last_of('.');
         return (
-            pivot == 0 || pivot == String::npos
+            pivot == 0 or pivot == String::npos
             ? String()
             : filename.substr(pivot + 1)
         );
@@ -144,7 +144,7 @@ public:
     }
 
     inline friend bool operator!=(const Path& lhs, const Path& rhs) {
-        return !lhs.Equals(rhs);
+        return not lhs.Equals(rhs);
     }
 
     inline friend Path operator/(const Path& lhs, const Path& rhs)

@@ -29,6 +29,18 @@ using Vec3u = glm::vec<3, uint32_t, glm::packed>;
 using Vec4u = glm::vec<4, uint32_t, glm::packed>;
 
 template <typename T>
+inline constexpr T DegToRad(T degrees)
+{
+    return glm::radians(degrees);
+}
+
+template <typename T>
+inline constexpr T RadToDeg(T radians)
+{
+    return glm::degrees(radians);
+}
+
+template <typename T>
 constexpr float NormalizeInteger(T value)
 {
     return (

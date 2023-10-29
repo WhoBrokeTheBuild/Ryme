@@ -1,4 +1,5 @@
 #include <Ryme/UTF.hpp>
+#include <Ryme/Tuple.hpp>
 
 #if defined(RYME_PLATFORM_WINDOWS)
 
@@ -99,12 +100,13 @@ void writeCodePoint(String& str, char32_t codePoint)
     }
 }
 
+RYME_API
 bool IsValid(StringView str)
 {
     char32_t codePoint = 0;
 
     size_t offset = 0;
-    while (!str.empty()) {
+    while (not str.empty()) {
         std::tie(offset, codePoint) = readCodePoint(str, 0);
         if (codePoint == 0) {
             return false;
@@ -116,13 +118,14 @@ bool IsValid(StringView str)
     return true;
 }
 
+RYME_API
 size_t GetLength(StringView str)
 {
     size_t length = 0;
     char32_t codePoint = 0;
 
     size_t offset = 0;
-    while (!str.empty()) {
+    while (not str.empty()) {
         std::tie(offset, codePoint) = readCodePoint(str, 0);
         if (codePoint == 0) {
             return StringView::npos;
@@ -135,6 +138,7 @@ size_t GetLength(StringView str)
     return length;
 }
 
+RYME_API
 U32String ToUTF32(StringView str, char32_t replace /*= ReplacementCharacter*/)
 {
     U32String u32str;
@@ -150,6 +154,7 @@ U32String ToUTF32(StringView str, char32_t replace /*= ReplacementCharacter*/)
     return u32str;
 }
 
+RYME_API
 String ToUTF8(U32StringView u32str)
 {
     String str;
@@ -187,7 +192,7 @@ U32String CaseFold(U32StringView u32str)
             }
         }
 
-        if (!found) {
+        if (not found) {
             folded.push_back(c);
         }
     }

@@ -86,7 +86,7 @@ struct RYME_API Version
     inline friend bool operator>=(const Version& lhs, const Version& rhs)
     {
         int res = Version::Compare(lhs, rhs);
-        return (res == 0 || res == 1);
+        return (res == 0 or res == 1);
     }
 
     inline friend bool operator<(const Version& lhs, const Version& rhs)
@@ -97,7 +97,7 @@ struct RYME_API Version
     inline friend bool operator<=(const Version& lhs, const Version& rhs)
     {
         int res = Version::Compare(lhs, rhs);
-        return (res == 0 || res == -1);
+        return (res == 0 or res == -1);
     }
 
     ///

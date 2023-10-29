@@ -1,0 +1,44 @@
+{
+	"ifndef guard": {
+		"scope": "c,cpp",
+		"prefix": "guard",
+		"body": [
+			"#ifndef RYME_$1_HPP",
+			"#define RYME_$1_HPP",
+			"",
+			"$0",
+			"",
+			"#endif // RYME_$1_HPP"
+		]
+	},
+	"namespace ryme": {
+		"scope": "cpp",
+		"prefix": "name",
+		"body": [
+			"namespace ryme {",
+			"",
+			"$0",
+			"",
+			"} // namespace ryme"
+		]
+	},
+	"class RYME_API": {
+		"scope": "cpp",
+		"prefix": "cls",
+		"body": [
+			"class RYME_API $1",
+			"{",
+			"public:",
+			"",
+			"\t$1() = default;",
+			"",
+			"\tvirtual ~$1() = default;",
+			"",
+			"\t$0",
+			"",
+			"private:",
+			"",
+			"}; // class $1"
+		]
+	}
+}

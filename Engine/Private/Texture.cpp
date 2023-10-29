@@ -7,16 +7,19 @@
 
 namespace ryme {
     
+RYME_API
 Texture::Texture(const Path& path, vk::SamplerCreateInfo samplerCreateInfo /*= {}*/, bool search /*= true*/)
 {
     LoadFromFile(path, samplerCreateInfo, search);
 }
 
+RYME_API
 Texture::~Texture()
 {
     Free();
 }
 
+RYME_API
 bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreateInfo /*= {}*/, bool search /*= true*/)
 {
     int width;
@@ -40,7 +43,7 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
         data = stbi_load(path.ToCString(), &width, &height, &components, STBI_rgb_alpha);
     }
 
-    if (!data) {
+    if (not data) {
         return false;
     }
 
@@ -136,6 +139,7 @@ bool Texture::LoadFromFile(const Path& path, vk::SamplerCreateInfo samplerCreate
     return true;
 }
 
+RYME_API
 void Texture::Free()
 {
     Graphics::Device.destroySampler(_sampler);
@@ -151,6 +155,7 @@ void Texture::Free()
     _allocation = nullptr;
 }
 
+RYME_API
 bool Texture::Reload()
 {
     return LoadFromFile(_path, _samplerCreateInfo, false);

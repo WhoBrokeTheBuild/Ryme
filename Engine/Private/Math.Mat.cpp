@@ -51,12 +51,12 @@ void bindMatrix(py::module m, const char * name)
                     throw Exception("Invalid ndim {}, expected {}", values.ndim(), 2);
                 }
 
-                if (values.shape(0) != L || values.shape(1) != L) {
+                if (values.shape(0) != L or values.shape(1) != L) {
                     throw Exception("Invalid shape {}x{}, expected {}x{}",
                         values.shape(0), values.shape(1), L, L);
                 }
 
-                if (values.strides(0) / sizeof(T) != L || values.strides(1) != sizeof(T)) {
+                if (values.strides(0) / sizeof(T) != L or values.strides(1) != sizeof(T)) {
                     throw Exception("Invalid strides, data must be contiguous");
                 }
 

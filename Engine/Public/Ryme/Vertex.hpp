@@ -2,7 +2,7 @@
 #define RYME_VERTEX_HPP
 
 #include <Ryme/Config.hpp>
-#include <Ryme/Containers.hpp>
+#include <Ryme/Span.hpp>
 #include <Ryme/Math.hpp>
 
 #include <Ryme/ThirdParty/vulkan.hpp>

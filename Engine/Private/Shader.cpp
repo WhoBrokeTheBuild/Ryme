@@ -2,6 +2,7 @@
 #include <Ryme/Exception.hpp>
 #include <Ryme/Graphics.hpp>
 #include <Ryme/Log.hpp>
+#include <Ryme/Span.hpp>
 
 #include <fstream>
 
@@ -9,23 +10,26 @@
 
 namespace ryme {
 
+RYME_API
 Shader::Shader(const List<Path>& pathList, bool search /*= true*/)
 {
     LoadFromFiles(pathList, search);
 }
 
+RYME_API
 Shader::~Shader()
 {
     Free();
 }
 
+RYME_API
 bool Shader::LoadFromFiles(const List<Path>& pathList, bool search /*= true*/)
 {
     Free();
 
     for (const auto& path : pathList) {
-        if (!LoadSPV(path, search)) {
-            if (!LoadSPV(path + ".spv", search)) {
+        if (not LoadSPV(path, search)) {
+            if (not LoadSPV(path + ".spv", search)) {
                 return false;
             }
         }
@@ -49,6 +53,7 @@ bool Shader::LoadFromFiles(const List<Path>& pathList, bool search /*= true*/)
     return true;
 }
 
+RYME_API
 void Shader::Free()
 {
     for (auto& shaderModule : _shaderModuleList) {
@@ -77,6 +82,7 @@ void Shader::Free()
     _isLoaded = false;
 }
 
+RYME_API
 bool Shader::Reload()
 {
     List<Path> oldPathList = _pathList;
@@ -85,6 +91,7 @@ bool Shader::Reload()
     return LoadFromFiles(oldPathList, false);
 }
 
+RYME_API
 bool Shader::LoadSPV(const Path& path, bool search)
 {
     vk::Result vkResult;
@@ -106,7 +113,7 @@ bool Shader::LoadSPV(const Path& path, bool search)
         file.open(path.ToString(), std::ios::binary);
     }
 
-    if (!file.is_open()) {
+    if (not file.is_open()) {
         return false;
     }
 
@@ -248,7 +255,7 @@ bool Shader::LoadSPV(const Path& path, bool search)
         }
     }
 
-    if (!resources.push_constant_buffers.empty()) {
+    if (not resources.push_constant_buffers.empty()) {
         auto& resource = resources.push_constant_buffers.front();
         const auto& type = compiler.get_type(resource.base_type_id);
         size_t size = compiler.get_declared_struct_size(type);

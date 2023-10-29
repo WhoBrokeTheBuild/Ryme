@@ -32,9 +32,9 @@ public:
       return _isLoaded;
     }
 
-    bool operator!() const
+    bool operatornot () const
     {
-      return !_isLoaded;
+      return not _isLoaded;
     }
 
 protected:

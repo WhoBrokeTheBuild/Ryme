@@ -3,48 +3,56 @@
 
 #include <Ryme/Config.hpp>
 #include <Ryme/Asset.hpp>
-#include <Ryme/Path.hpp>
-#include <Ryme/Containers.hpp>
-
-#include <Ryme/JSON.hpp>
+#include <Ryme/Buffer.hpp>
+#include <Ryme/List.hpp>
+#include <Ryme/NonCopyable.hpp>
+#include <Ryme/Vertex.hpp>
 
 #include <Ryme/ThirdParty/vulkan.hpp>
 
 namespace ryme {
 
-class Primitive;
-
-class RYME_API Mesh : public Asset
+class RYME_API MeshData
 {
 public:
 
-    Mesh(const Path& path, bool search = true);
+    vk::PrimitiveTopology PrimitiveTopology = vk::PrimitiveTopology::eTriangleList;
 
-    virtual ~Mesh();
+    List<uint32_t> IndexList;
 
-    bool LoadFromFile(const Path& path, bool search = true);
+    List<Vertex> VertexList;
 
-    void Free() override;
+    // Material
 
-    bool Reload() override;
+    void CalculateTangents();
 
-    bool CanReload() const override {
-        return true;
-    }
+}; // class MeshData
+
+class RYME_API Mesh : public NonCopyable
+{
+public:
+
+    Mesh(MeshData&& data);
+    
+    Mesh(Mesh&&) = default;
+
+    virtual ~Mesh() = default;
+
+    void GenerateCommands(vk::CommandBuffer buffer);
 
 private:
 
-    bool LoadGLTF2(const Path& path, bool search);
+    bool _indexed = false;
 
-    bool LoadOBJ(const Path& path, bool search);
+    uint32_t _count;
 
-    Path _path;
+    vk::PrimitiveTopology _primitiveTopology;
 
-    // List<Primitive> _primitiveList;
+    Buffer _vertexBuffer;
 
-    vk::DescriptorSet _descriptorSet;
+    Buffer _indexBuffer;
 
-}; // class mesh
+}; // class Mesh
 
 } // namespace ryme
 
