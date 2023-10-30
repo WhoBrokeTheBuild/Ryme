@@ -94,8 +94,6 @@ bool Shader::Reload()
 RYME_API
 bool Shader::LoadSPV(const Path& path, bool search)
 {
-    vk::Result vkResult;
-
     std::ifstream file;
     Path fullPath = path;
 
@@ -152,7 +150,7 @@ bool Shader::LoadSPV(const Path& path, bool search)
         stage = vk::ShaderStageFlagBits::eGeometry;
         break;
     default:
-        throw Exception("Invalid SPIR-V Execution Model: {}", entryPointStage.execution_model);
+        throw Exception("Invalid SPIR-V Execution Model: {}", (int)entryPointStage.execution_model);
     }
 
     auto shaderModuleCreateInfo = vk::ShaderModuleCreateInfo()
@@ -221,8 +219,8 @@ bool Shader::LoadSPV(const Path& path, bool search)
     }
 
     for (auto& resource : resources.uniform_buffers) {
-        const auto& type = compiler.get_type(resource.base_type_id);
-        size_t size = compiler.get_declared_struct_size(type);
+        // const auto& type = compiler.get_type(resource.base_type_id);
+        // size_t size = compiler.get_declared_struct_size(type);
 
         uint32_t set = compiler.get_decoration(resource.id, spv::Decoration::DecorationDescriptorSet);
         uint32_t binding = compiler.get_decoration(resource.id, spv::Decoration::DecorationBinding);

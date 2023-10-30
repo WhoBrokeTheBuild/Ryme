@@ -183,7 +183,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL _VulkanDebugMessageCallback(
             if (name) {
                 Log("VkDebugUtilsMessenger", "\tObject #{}: Type {}, Value {:p}, Name '{}'",
                     i,
-                    callbackData->pObjects[i].objectType,
+                    (int)callbackData->pObjects[i].objectType,
                     callbackData->pObjects[i].objectHandle,
                     callbackData->pObjects[i].pObjectName);
             }
@@ -249,7 +249,7 @@ void initInstance()
     
     Log(RYME_ANCHOR, "Available Vulkan Layers:");
     for (const auto& layer : _availableLayerList) {
-        Log(RYME_ANCHOR, "\t{}: {}", layer.layerName, layer.description);
+        Log(RYME_ANCHOR, "\t{}: {}", layer.layerName.data(), layer.description.data());
     }
 
     Log(RYME_ANCHOR, "Required Vulkan Layers:");
@@ -285,7 +285,7 @@ void initInstance()
 
     Log(RYME_ANCHOR, "Available Vulkan Instance Extensions:");
     for (const auto& extension : _availableInstanceExtensionList) {
-        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
+        Log(RYME_ANCHOR, "\t{}", extension.extensionName.data());
     }
 
     Log(RYME_ANCHOR, "Required Vulkan Instance Extensions:");
@@ -383,7 +383,7 @@ void initDevice()
         _physicalDeviceProperties = physicalDevice.getProperties();
         _physicalDeviceFeatures = physicalDevice.getFeatures();
 
-        Log(RYME_ANCHOR, "\t{}", _physicalDeviceProperties.deviceName);
+        Log(RYME_ANCHOR, "\t{}", _physicalDeviceProperties.deviceName.data());
         
         bool isSuitable = (
             _physicalDeviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu and
@@ -400,7 +400,7 @@ void initDevice()
         throw Exception("No suitable physical device found");
     }
 
-    Log(RYME_ANCHOR, "Physical Device Name: {}", _physicalDeviceProperties.deviceName);
+    Log(RYME_ANCHOR, "Physical Device Name: {}", _physicalDeviceProperties.deviceName.data());
 
     Log(RYME_ANCHOR, "Physical Vulkan Version: {}.{}.{}",
         VK_VERSION_MAJOR(_physicalDeviceProperties.apiVersion),
@@ -495,7 +495,7 @@ void initDevice()
     
     Log(RYME_ANCHOR, "Available Vulkan Device Extensions:");
     for (const auto& extension : _availableDeviceExtensionList) {
-        Log(RYME_ANCHOR, "\t{}", extension.extensionName);
+        Log(RYME_ANCHOR, "\t{}", extension.extensionName.data());
     }
 
     Log(RYME_ANCHOR, "Required Vulkan Device Extensions:");

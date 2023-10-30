@@ -62,7 +62,7 @@ void LogMessage(StringView tag, StringView message);
 ///
 template <typename... Args>
 inline void Log(StringView tag, StringView format, Args&&... args) {
-    LogMessage(tag, fmt::vformat(format, fmt::make_format_args(std::forward<Args>(args)...)));
+    LogMessage(tag, fmt::vformat(format, fmt::make_format_args(args...)));
 }
 
 ///

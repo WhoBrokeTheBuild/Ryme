@@ -22,7 +22,7 @@
 
     #define RYME_DISABLE_WARNINGS() \
         _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wall\"")
+        _Pragma("clang diagnostic ignored \"-Wdeprecated-volatile\"")
     
     #define RYME_ENABLE_WARNINGS() \
         _Pragma("clang diagnostic pop")

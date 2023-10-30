@@ -10,6 +10,7 @@
 #include <Ryme/ThirdParty/python.hpp>
 #include <Ryme/ThirdParty/SDL.hpp>
 #include <Ryme/ThirdParty/vulkan.hpp>
+#include <vulkan/vulkan_core.h>
 
 namespace ryme {
 

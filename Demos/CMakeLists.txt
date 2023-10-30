@@ -83,7 +83,7 @@ macro(ryme_define_demo _target)
         set(_ext ".exe")
     endif()
 
-    file(RELATIVE_PATH _executable ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${_target}${_ext})
+    file(RELATIVE_PATH _executable ${CMAKE_BINARY_DIR} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${_target}${_ext})
 
     list(PREPEND RYME_ASSET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/Assets)
 
